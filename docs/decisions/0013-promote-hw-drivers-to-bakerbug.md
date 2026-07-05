@@ -110,4 +110,4 @@ Each `README.md` must include:
 1. ~~Implement the three drivers + READMEs in bakerbug-firmware~~ — done in submodule `vendor/bakerbug-firmware/firmware/lib/drivers/`
 2. ~~Point dorinda `platformio.ini` at submodule `lib/drivers`~~ — done
 3. ~~Delete dorinda `hw/*.cpp` driver bodies; keep `hw/pins.h`~~ — done
-4. Push bakerbug-firmware submodule commit upstream (separate repo)
+4. ~~Push bakerbug-firmware submodule commit upstream~~ — done (`26d0ef9`)
