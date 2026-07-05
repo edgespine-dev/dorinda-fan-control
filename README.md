@@ -17,6 +17,7 @@ Smart 12 V enclosure fan controller for **Dorinda** (sailboat electronics bay). 
 | Hardware wiring & pin map | [docs/hardware.md](docs/hardware.md) |
 | CAD / mechanical | [cad/](cad/) *(Autodesk exports — add when ready)* |
 | Software architecture & BSP dependency | [docs/architecture.md](docs/architecture.md) |
+| **`hw/` driver API policy** | [docs/architecture.md#hardware-layer-hw](docs/architecture.md#hardware-layer-hw) · [ADR-0012](docs/decisions/0012-hw-component-api.md) |
 | Test phases & main app spec | [docs/roadmap.md](docs/roadmap.md) |
 | **Design decision log (ADR)** | [docs/decisions/](docs/decisions/) |
 | Firmware source (when implemented) | [firmware/](firmware/) |

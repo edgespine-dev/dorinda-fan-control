@@ -48,9 +48,11 @@ Enclosure fan controller for **Dorinda**. All low-voltage logic runs at 3.3 V (E
 
 ### PWM note
 
-ESP8266 drives **D5** with `analogWrite()` range **0–1023**. Firmware sets **20 kHz** PWM (`analogWriteFreq(20000)`) — within the MOSFET module’s **0–20 kHz** input spec and above audible whine for most fans.
+ESP8266 drives **D5** with `analogWrite()` range **0–1023**. Firmware sets **18 kHz** PWM (`analogWriteFreq(18000)`) — margin under the module’s **0–20 kHz** max, usually above audible whine.
 
-Pot maps linearly to duty: 0 % → PWM 0, 100 % → PWM 1023 (calibrated ADC range from TEST 1: min=5, max=1024).
+Pot maps linearly to duty via `drivers::pot_read_value_percentage()` (calibrated with `pot_init(pin, 5, 1024)` from TEST 1).
+
+**Ramp (inrush limit):** `drivers::fan_control_set_new_setpoint()` sets the **target** (0–100 %); `drivers::fan_control_loop()` (every `loop()`) steps `fan_control_get_current_value()` by at most **6 % every 200 ms** until the setpoint is reached. Full 0→100 % takes ~3.4 s.
 
 ### ADC note
 
@@ -102,21 +104,45 @@ Use short leads inside the enclosure. If cable length exceeds ~1 m, consider par
 
 ## MOSFET module (dual MOS low-side driver)
 
-Typical board: **XY-MOS**-style dual parallel MOSFET module (same class as V921 listings).
+Typical board: **XY-MOS**-style **dual parallel MOSFET** switch module (V921-class listings). Low-side (**ground-source**) switching — TRIG high turns load on, TRIG low turns load off.
+
+### Electrical ratings
 
 | Spec | Value |
 |------|-------|
 | Load voltage | DC **5–36 V** (Dorinda: **12 V** fan) |
-| Continuous current | **15 A** @ 25 °C (with heatsinking) |
-| Peak / max rating | up to **30 A** with extra heat sinking |
+| Continuous current | **15 A** @ room temperature (adequate heatsinking) |
+| Peak / max current | up to **30 A** with additional heat sinking |
 | Power rating | **400 W** |
-| Operating temp | **−40 °C … +85 °C** |
-| Control input | **TRIG/PWM** — 3.3 V logic OK (ESP8266 D5) |
-| Active level | High = ON, low = OFF |
-| PWM frequency | **0–20 kHz** (firmware uses **20 kHz**) |
-| Topology | Two MOSFETs in **parallel** — lower R<sub>DS(on)</sub>, higher current |
+| Operating temperature | **−40 °C … +85 °C** |
 
-**Why 20 kHz:** ESP8266 default ~1 kHz PWM can produce audible fan/coils whine. 20 kHz is the top of the module spec and typically inaudible.
+### Control input (TRIG / PWM)
+
+| Spec | Value |
+|------|-------|
+| Logic | Digital **high = ON**, **low = OFF** |
+| Compatible levels | **3.3 V – 20 V** (ESP8266 D5 @ 3.3 V OK) |
+| PWM frequency | **0 – 20 kHz** (firmware: **18 kHz**) |
+| Interfaces | MCU GPIO, Arduino-class boards, PLC inputs, DC control |
+
+### Design (vendor summary)
+
+- **Dual MOSFETs in parallel** on one driver IC — lower effective R<sub>DS(on)</sub>, higher current capacity, better heat spreading than a single FET.
+- On-board **FET driver circuit** — signal conditioning for PWM; intended for ground-referenced (low-side) loads.
+- Claimed traits: low distortion, good linearity/crosstalk behaviour, high bandwidth, low drive noise — adequate for PWM fan speed control (not audio-grade, but suitable for switching loads).
+
+### Dorinda usage
+
+| Aspect | Choice |
+|--------|--------|
+| Load | 12 V DC enclosure fan (low-side switched) |
+| ESP pin | **D5** → module **TRIG/PWM** |
+| PWM | 18 kHz, 10-bit (0–1023), **ramped** 64 counts / 200 ms (see [PWM note](#pwm-note)) |
+| Headroom | Fan << 15 A continuous — large margin on this module |
+
+**Why 18 kHz:** ESP8266 default ~1 kHz PWM causes audible whine. 18 kHz stays clearly below the module’s 20 kHz ceiling (timing/component spread) while still inaudible to most ears.
+
+**Inrush:** Firmware never steps PWM instantly; ramp limits start-up current spikes on fan and module.
 
 ### Wiring
 

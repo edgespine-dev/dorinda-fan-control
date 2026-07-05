@@ -13,6 +13,129 @@ How **dorinda-fan-control** is structured, how it uses **bakerbug-firmware BSP**
 3. **Thin main loop** — hardware polling, control policy, and HTTP handled in separate modules
 4. **Calibration is data** — PWM→current matrix is not hard-coded; it comes from TEST 3
 5. **Future ESP-NOW** — control policy accepts multiple inputs (local pot, web override, remote climate)
+6. **Consistent `hw/` API** — board peripherals use init / set / get / loop; see [Hardware layer](#hardware-layer-hw)
+
+---
+
+## Hardware layer (`hw/`)
+
+Board-local drivers live in `firmware/lib/hw/`. They are **not** part of bakerbug BSP.
+
+### How this maps to bakerbug-firmware
+
+[bakerbug-firmware](https://github.com/BakerStack/bakerbug-firmware) uses a **four-layer** stack:
+
+```
+┌─────────────────────────────────┐
+│  Application (main.cpp)         │  ← dorinda: tests/, apps/main/
+├─────────────────────────────────┤
+│  Software modules (mqtt/, …)    │  ← dorinda: (not used — ADR-0003)
+├─────────────────────────────────┤
+│  Drivers (lib/drivers/)         │  ← chip drivers, e.g. SCD41
+├─────────────────────────────────┤
+│  BSP (bsp/)                       │  ← WiFi, GPIO, I2C, TLS, time, log
+└─────────────────────────────────┘
+```
+
+**Dorinda-fan-control** vendors only the **BSP** slice (WiFi, log) from bakerbug. Our local **`hw/`** library plays the same *role* as bakerbug’s **`drivers/`** — but stays in this repo because it is **product- and board-specific** (Dorinda pin map, pot ADC calibration 5–1024, fan ramp policy).
+
+```
+dorinda-fan-control                    bakerbug-firmware (submodule)
+─────────────────────                  ─────────────────────────────
+tests / apps/main          ≈           Application
+  ControlPolicy, WebServer, cal
+       │
+firmware/lib/hw/           ≈           lib/drivers/   (generic chip drivers)
+  pot, temp_sensor, fan_control              SCD41, watchdog, …
+       │                                        │
+vendor/…/bsp/              =           bsp/           (platform HAL)
+  wifi, log                                gpio, i2c, tls, …
+       │
+Arduino / ESP8266          =           Arduino / ESP8266
+```
+
+### What goes where (promotion rules)
+
+| Code | Layer | Example |
+|------|-------|---------|
+| WiFi connect, logging | **bakerbug BSP** | `bsp_wifi_connect()` — already shared |
+| Generic GPIO / I2C / PWM primitive | **bakerbug BSP** | `bsp_gpio_*` — if we need portability across MCUs |
+| Reusable **chip** driver (no product pins) | **bakerbug `drivers/`** | DS18B20 wrapper usable on any D2 + pull-up board |
+| **This board’s** pins + scaling + policy | **dorinda `hw/`** | `pot_init(5,1024)`, `fan_control` ramp on D5 |
+| Override, cal matrix, safety, HTTP | **dorinda app / lib** | `cal::`, `ControlPolicy`, web routes |
+
+**Pot and fan should not move to BSP.** BSP answers *“how does this MCU do WiFi/GPIO?”* — not *“how does Dorinda’s B50K map to percent?”* or *“how fast do we ramp the bay fan?”*.
+
+**When to promote upstream to bakerbug:**
+
+| Trigger | Move to |
+|---------|---------|
+| Reusable chip or actuator driver (any pin, init-time config) | **`bakerbug-firmware/lib/drivers/`** + README |
+| MCU primitive shared ESP8266/ESP32 | `bakerbug-firmware/bsp/` |
+| Board pin map + product calibration defaults | **dorinda `hw/pins.h` + `setup()`** |
+
+**Target state ([ADR-0013](decisions/0013-promote-hw-drivers-to-bakerbug.md)):** `ds18b20`, `potentiometer`, and `fan_control` live as full drivers in bakerbug with per-driver READMEs. Dorinda keeps **`hw/pins.h`** and **`setup()` init calls** only; no local driver `.cpp` after migration.
+
+Until that migration lands, dorinda called local `hw/` implementations — **done 2026-07-05**: drivers live in bakerbug submodule; dorinda keeps `hw/pins.h` + init calls only.
+
+---
+
+### Component policy
+
+When adding or changing a peripheral, follow this checklist:
+
+| Step | Action |
+|------|--------|
+| 1 | Add pin constant(s) to `hw/pins.h`; update [hardware.md](hardware.md) |
+| 2 | Add `include/hw/<name>.h` + `src/<name>.cpp` (one component per pair) |
+| 3 | Implement the API roles below — only expose what callers need |
+| 4 | Prove in the smallest TEST phase before wiring into main app |
+| 5 | Document non-obvious behaviour in the header or an ADR |
+
+### API roles (naming)
+
+| Role | Pattern | Example |
+|------|---------|---------|
+| **Init** | `<name>_init(...)` | `pot_init(5, 1024)`, `fan_init(D5, 200, 6)` |
+| **Command** | `<name>_set_*`, `<name>_read_*` | `fan_set_new_setpoint(42)`, `temp_read_celsius(&t)` |
+| **Get state** | `<name>_get_*` | `fan_get_setpoint()`, `fan_get_current_value()` |
+| **Peek / raw** | `*_raw` or `read_raw` | `pot_read_raw()`, `fan_get_pwm_raw()` — debug & cal only |
+| **Loop** | `<name>_*_loop()` | `fan_control_loop()` — call from `loop()`, never from HTTP |
+
+**Domain units at the boundary:** fan and pot speak **0–100 %**; temperature in **°C**. Raw PWM (0–1023) and ADC counts stay inside `hw/` except for calibration UI and matrix storage.
+
+**No blocking I/O in async handlers:** read sensors and run `fan_control_loop()` in `loop()`; web routes serve cached structs (see TEST 2).
+
+### Current modules
+
+| File | Responsibility |
+|------|----------------|
+| `pins.h` | Single pin map for Dorinda D1 Mini |
+| `pot` | Calibrated ADC → 0–100 % |
+| `temp_sensor` | DS18B20 → °C |
+| `fan_control` | Percent setpoint, ramped PWM @ 18 kHz to MOSFET |
+
+Typical main-loop usage:
+
+```cpp
+drivers::pot_init(hw::pins::POT, 5, 1024);
+drivers::fan_control_init(hw::pins::FAN_PWM, 200, 6, 18000);
+
+void loop() {
+    drivers::fan_control_loop();
+    const int pot_pct = drivers::pot_read_value_percentage();
+    drivers::fan_control_set_new_setpoint(pot_pct);
+    // ... cache for web, control policy, safety ...
+}
+```
+
+### What does **not** belong in `hw/`
+
+| Layer | Examples |
+|-------|----------|
+| `hw/` | Pin read, PWM write, sensor driver, unit scaling |
+| App / lib | Override logic, cal matrix, HTTP, safety thresholds |
+| BSP | WiFi, logging, generic GPIO if shared across products |
 
 ---
 
@@ -65,8 +188,8 @@ Pin a submodule commit when a release is tagged so builds are reproducible.
 ┌─────────────────────────────────────────────────────────┐
 │  main.cpp          setup(), loop orchestration          │
 ├─────────────────────────────────────────────────────────┤
-│  SensorService     pot ADC filter, DS18B20 read         │
-│  FanOutput         PWM write, safety clamp              │
+│  SensorService     polls drivers::pot, drivers::ds18b20  │
+│  FanControl        drivers::fan_control + safety clamp  │
 │  ControlPolicy     pot vs override vs auto (future)     │
 │  CurrentEstimate   matrix lookup + interpolation       │
 │  WebServer         HTTP page + /api/status              │

@@ -1,9 +1,9 @@
 {
   "name": "hw",
   "version": "1.0.0",
-  "description": "Dorinda fan controller — board-local hardware wrappers",
+  "description": "Dorinda fan controller — board pin map only",
   "build": {
     "includeDir": "include",
-    "srcDir": "src"
+    "srcFilter": "-<*>"
   }
 }

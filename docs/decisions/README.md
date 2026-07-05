@@ -31,6 +31,8 @@ Each ADR follows a lightweight template:
 | [0009](0009-esp-now-future-climate-node.md) | Future ESP-NOW remote sensor — separate node/repo | Accepted |
 | [0010](0010-docs-before-code.md) | Documentation and ADR log before firmware implementation | Accepted |
 | [0011](0011-local-hw-layer-not-bsp-yet.md) | Local `hw/` layer; DS18B20/MOSFET BSP deferred | Accepted |
+| [0012](0012-hw-component-api.md) | `hw/` component API — init, set, get, loop | Accepted |
+| [0013](0013-promote-hw-drivers-to-bakerbug.md) | Promote pot, DS18B20, fan_control to bakerbug `drivers/` | Accepted |
 
 ## Adding a new decision
 

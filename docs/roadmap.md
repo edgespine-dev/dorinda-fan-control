@@ -114,6 +114,7 @@ Matrix updated (9 rows):
 - [ ] Serial dump on every matrix edit
 - [ ] Interpolation between points documented (linear between knots)
 - [ ] Fan audibly/spin-wise responds at each PWM step
+- [ ] PWM output **ramps** in **200 ms** steps (≤64 counts/step) — limits inrush current
 
 ### Deliverable for main app
 
@@ -144,7 +145,7 @@ File location (planned): `firmware/data/current_matrix.json` or NVS namespace `c
 | M4 | Display DS18B20 enclosure temperature |
 | M5 | Slider sets PWM override (0–100 %) |
 | M6 | **Override drop:** physical pot movement beyond deadband cancels override |
-| M7 | PWM output on D5 follows override if active, else pot mapping |
+| M7 | PWM on D5 follows override if active, else pot — **ramped** in 200 ms steps (≤64 PWM counts/step), never instant jump |
 | M8 | Show **estimated current** from TEST 3 matrix + current PWM |
 | M9 | API endpoint `/api/status` JSON for debugging |
 
@@ -155,8 +156,10 @@ if override_active:
     if abs(pot - pot_at_override_lock) > DEADBAND:
         override_active = false
 
-output_pwm = override_active ? slider_pwm : map(pot)
-estimated_ma = interpolate(matrix, output_pwm)
+output_pct = override_active ? slider_pct : drivers::pot_read_value_percentage()
+drivers::fan_control_set_new_setpoint(output_pct)
+drivers::fan_control_loop()   // ramp 200 ms / 6 % steps
+estimated_ma = interpolate(matrix, drivers::fan_control_get_pwm_raw())
 ```
 
 `DEADBAND` tuned from TEST 1 logs (start with 3–5 % of ADC range).

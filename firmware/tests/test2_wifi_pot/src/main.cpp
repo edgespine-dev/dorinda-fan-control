@@ -5,8 +5,9 @@
 #include <bsp/log.h>
 #include <bsp/wifi.h>
 #include <dfc_secrets.h>
-#include <hw/pot.h>
-#include <hw/temp_sensor.h>
+#include <drivers/ds18b20.h>
+#include <drivers/potentiometer.h>
+#include <hw/pins.h>
 
 constexpr uint32_t SERIAL_BAUD = 115200;
 constexpr uint32_t SENSOR_INTERVAL_MS = 1000;
@@ -30,25 +31,6 @@ uint32_t last_sensor_ms = 0;
 WifiMode g_wifi_mode = WifiMode::Ap;
 String g_device_ip;
 
-static int pot_percent(int16_t raw)
-{
-    const int span = POT_ADC_MAX - POT_ADC_MIN;
-    if (span <= 0)
-    {
-        return 0;
-    }
-    int pct = ((static_cast<int>(raw) - POT_ADC_MIN) * 100) / span;
-    if (pct < 0)
-    {
-        return 0;
-    }
-    if (pct > 100)
-    {
-        return 100;
-    }
-    return pct;
-}
-
 static bool wifi_is_sta()
 {
     return g_wifi_mode == WifiMode::Sta;
@@ -61,9 +43,9 @@ static const char* device_ip()
 
 static void poll_sensors()
 {
-    g_live.pot_raw = hw::pot_read_raw();
-    g_live.pot_pct = pot_percent(g_live.pot_raw);
-    g_live.temp_ok = hw::temp_read_celsius(&g_live.temp_c);
+    g_live.pot_raw = drivers::pot_read_raw();
+    g_live.pot_pct = drivers::pot_read_value_percentage();
+    g_live.temp_ok = drivers::ds18b20_read_celsius(&g_live.temp_c);
 }
 
 static bool wifi_start()
@@ -162,8 +144,8 @@ void setup()
     delay(100);
     log_init(SERIAL_BAUD);
 
-    hw::pot_init();
-    hw::temp_init();
+    drivers::pot_init(hw::pins::POT, POT_ADC_MIN, POT_ADC_MAX);
+    drivers::ds18b20_init(hw::pins::DS18B20);
     poll_sensors();
 
     Serial.println();

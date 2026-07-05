@@ -7,7 +7,7 @@ PlatformIO project for Dorinda fan controller.
 ```
 firmware/
 ├── platformio.ini
-├── lib/hw/                    # Board-local wrappers (pot, temp, pins)
+├── lib/hw/                    # Dorinda pin map only (`hw/pins.h`)
 ├── tests/
 │   └── test1_sensors/         # TEST 1 — serial only
 └── apps/main/                 # (planned) production app
@@ -62,7 +62,7 @@ JSON API: `/api/status`
 
 ## TEST 3 — PWM + current calibration matrix
 
-**Requires 12 V + fan connected.** Pot drives PWM @ 20 kHz (0–100 %).
+**Requires 12 V + fan connected.** Pot → `fan_set_new_setpoint()`; PWM @ 18 kHz, **ramped 6 % / 200 ms** (`fan_control_loop()`).
 
 ```bash
 make test3-upload

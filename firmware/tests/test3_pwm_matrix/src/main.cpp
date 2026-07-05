@@ -7,15 +7,20 @@
 #include <bsp/wifi.h>
 #include <cal/matrix.h>
 #include <dfc_secrets.h>
-#include <hw/fan_output.h>
-#include <hw/pot.h>
-#include <hw/temp_sensor.h>
+#include <drivers/fan_control.h>
+#include <drivers/potentiometer.h>
+#include <drivers/ds18b20.h>
+#include <hw/pins.h>
 
 constexpr uint32_t SERIAL_BAUD = 115200;
 constexpr uint32_t REPORT_INTERVAL_MS = 1000;
 
 constexpr int16_t POT_ADC_MIN = 5;
 constexpr int16_t POT_ADC_MAX = 1024;
+
+constexpr uint32_t FAN_RAMP_INTERVAL_MS = 200;
+constexpr uint8_t FAN_RAMP_STEP_PERCENT = 6;
+constexpr uint32_t FAN_PWM_HZ = 18000;
 
 enum class WifiMode { Ap, Sta };
 
@@ -36,38 +41,15 @@ WifiMode g_wifi_mode = WifiMode::Ap;
 String g_device_ip;
 
 bool g_cal_hold = false;
-uint16_t g_cal_hold_pwm = 0;
+int g_cal_hold_pct = 0;
 
-static int pot_percent(int16_t raw)
+static int pwm_to_percent(uint16_t pwm)
 {
-    const int span = POT_ADC_MAX - POT_ADC_MIN;
-    if (span <= 0)
+    if (pwm > 1023)
     {
-        return 0;
+        pwm = 1023;
     }
-    int pct = ((static_cast<int>(raw) - POT_ADC_MIN) * 100) / span;
-    if (pct < 0)
-    {
-        return 0;
-    }
-    if (pct > 100)
-    {
-        return 100;
-    }
-    return pct;
-}
-
-static uint16_t percent_to_pwm(int pct)
-{
-    if (pct < 0)
-    {
-        pct = 0;
-    }
-    if (pct > 100)
-    {
-        pct = 100;
-    }
-    return static_cast<uint16_t>((pct * 1023) / 100);
+    return static_cast<int>((static_cast<uint32_t>(pwm) * 100 + 511) / 1023);
 }
 
 static bool wifi_is_sta()
@@ -114,24 +96,24 @@ static bool wifi_ready()
     return WiFi.getMode() == WIFI_AP;
 }
 
-static void apply_fan_output(int pot_pct)
+static void apply_fan_setpoint(int pot_pct)
 {
-    const uint16_t pwm = g_cal_hold ? g_cal_hold_pwm : percent_to_pwm(pot_pct);
-    hw::fan_set_pwm(pwm);
+    const int pct = g_cal_hold ? g_cal_hold_pct : pot_pct;
+    drivers::fan_control_set_new_setpoint(pct);
 }
 
 static void poll_sensors_fast()
 {
-    g_live.pot_raw = hw::pot_read_raw();
-    g_live.pot_pct = pot_percent(g_live.pot_raw);
-    apply_fan_output(g_live.pot_pct);
-    g_live.pwm = hw::fan_get_pwm();
+    g_live.pot_raw = drivers::pot_read_raw();
+    g_live.pot_pct = drivers::pot_read_value_percentage();
+    apply_fan_setpoint(g_live.pot_pct);
+    g_live.pwm = drivers::fan_control_get_pwm_raw();
     g_live.est_ma = cal::interpolate_ma(g_live.pwm);
 }
 
 static void poll_sensors_slow()
 {
-    g_live.temp_ok = hw::temp_read_celsius(&g_live.temp_c);
+    g_live.temp_ok = drivers::ds18b20_read_celsius(&g_live.temp_c);
 }
 
 static void setup_web()
@@ -206,6 +188,7 @@ static void setup_web()
             "</form>"
             "<p style=font-size:.8rem;color:#64748b;margin-top:1rem>"
             "Suggested knots: 0, 64, 128, 192, 256, 384, 512, 768, 1023. Linear interpolation between points.</p>"
+            "<p style=font-size:.8rem;color:#64748b>Wait for PWM ramp to finish (~200 ms per 6%% step) before measuring current.</p>"
             "<table><tr><th>PWM</th><th>mA</th></tr>");
 
         for (size_t i = 0; i < cal::count(); ++i)
@@ -241,8 +224,8 @@ static void setup_web()
         if (request->hasParam("hold", true))
         {
             g_cal_hold = true;
-            g_cal_hold_pwm = pwm;
-            hw::fan_set_pwm(pwm);
+            g_cal_hold_pct = pwm_to_percent(pwm);
+            drivers::fan_control_set_new_setpoint(g_cal_hold_pct);
         }
 
         request->redirect("/cal");
@@ -259,8 +242,9 @@ static void setup_web()
                   g_cal_hold = doc["hold"] | false;
                   if (g_cal_hold)
                   {
-                      g_cal_hold_pwm = doc["pwm"] | 0;
-                      hw::fan_set_pwm(g_cal_hold_pwm);
+                      const uint16_t pwm = doc["pwm"] | 0;
+                      g_cal_hold_pct = pwm_to_percent(pwm);
+                      drivers::fan_control_set_new_setpoint(g_cal_hold_pct);
                   }
                   request->send(200, "application/json", "{\"ok\":true}");
               });
@@ -304,14 +288,15 @@ void setup()
     delay(100);
     log_init(SERIAL_BAUD);
 
-    hw::pot_init();
-    hw::temp_init();
-    hw::fan_init();
+    drivers::pot_init(hw::pins::POT, POT_ADC_MIN, POT_ADC_MAX);
+    drivers::ds18b20_init(hw::pins::DS18B20);
+    drivers::fan_control_init(hw::pins::FAN_PWM, FAN_RAMP_INTERVAL_MS, FAN_RAMP_STEP_PERCENT,
+                              FAN_PWM_HZ);
     poll_sensors_fast();
     poll_sensors_slow();
 
     Serial.println();
-    Serial.println("TEST 3 — pot PWM + cal matrix (20 kHz on D5)");
+    Serial.println("TEST 3 — pot PWM + cal matrix (18 kHz on D5)");
 
     if (!cal::init())
     {
@@ -335,6 +320,7 @@ void setup()
 void loop()
 {
     yield();
+    drivers::fan_control_loop();
     poll_sensors_fast();
 
     const uint32_t now = millis();

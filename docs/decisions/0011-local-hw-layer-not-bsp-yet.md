@@ -26,7 +26,7 @@ MOSFET control is one GPIO/PWM output. Pot is one ADC read. Neither needs a full
 
 **Positive:**
 
-- Main and tests read like: `hw::pot_read_raw()`, `hw::temp_read_celsius()`
+- Main and tests call `hw::` with a consistent API — see [ADR-0012](0012-hw-component-api.md)
 - Pin map lives in one file (`hw/pins.h`)
 - bakerbug stays focused on platform, not every sensor board
 
@@ -36,4 +36,5 @@ MOSFET control is one GPIO/PWM output. Pot is one ADC read. Neither needs a full
 
 **Follow-ups:**
 
-- Add `hw/fan_output.cpp` when TEST 3 needs PWM (wraps `analogWrite` on `pins::FAN_PWM`)
+- ~~Promote DS18B20 to bakerbug BSP~~ → **bakerbug `drivers/`** per [ADR-0013](0013-promote-hw-drivers-to-bakerbug.md) (`ds18b20`, `potentiometer`, `fan_control` + READMEs)
+- `hw/fan_control` reference impl — **ported** to `drivers/fan_control` in bakerbug submodule (2026-07-05)
