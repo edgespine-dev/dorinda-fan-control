@@ -1,0 +1,9 @@
+{
+  "name": "cal_matrix",
+  "version": "1.0.0",
+  "description": "PWM to current calibration matrix (LittleFS)",
+  "build": {
+    "includeDir": "include",
+    "srcDir": "src"
+  }
+}
