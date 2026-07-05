@@ -1,0 +1,9 @@
+{
+  "name": "hw",
+  "version": "1.0.0",
+  "description": "Dorinda fan controller — board-local hardware wrappers",
+  "build": {
+    "includeDir": "include",
+    "srcDir": "src"
+  }
+}
