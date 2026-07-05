@@ -1,0 +1,30 @@
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
+
+# Build artifacts
+*.elf
+*.bin
+*.hex
+
+# Secrets
+secrets.env
+*.env
+!*.env.example
+firmware/include/dfc_secrets.h
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Python
+.venv/
+__pycache__/
+
+# OS
+.DS_Store
+
+# Calibration exports (device-specific)
+firmware/data/current_matrix.json
