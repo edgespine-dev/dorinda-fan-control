@@ -1,0 +1,3 @@
+[submodule "vendor/bakerbug-firmware"]
+	path = vendor/bakerbug-firmware
+	url = git@github.com:BakerStack/bakerbug-firmware.git
