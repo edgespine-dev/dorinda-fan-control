@@ -2,7 +2,7 @@
 
 Smart 12 V enclosure fan controller for **Dorinda** (sailboat electronics bay). Built on **ESP8266**, with incremental bring-up tests, a calibration workflow for PWM→current mapping, and a production web UI for manual control with safety overrides.
 
-> **If you are reading this after a long break:** start with [Quick orientation](#quick-orientation), then run **TEST 1** on the bench before touching WiFi or the web UI.
+> **If you are reading this after a long break:** start with [Quick orientation](#quick-orientation). **TEST 1–2 done** (human verified 2026-07-05) — next up is **TEST 3** (PWM + cal matrix on bench with 12 V).
 
 [![Platform](https://img.shields.io/badge/platform-ESP8266-blue)]()
 [![Framework](https://img.shields.io/badge/framework-Arduino-orange)]()
@@ -94,12 +94,12 @@ Full pin table and wiring notes: [docs/hardware.md](docs/hardware.md)
 
 Development proceeds in locked order. Do not skip ahead.
 
-| Phase | Folder (planned) | Purpose | Pass criteria |
-|-------|------------------|---------|---------------|
-| **TEST 1** | `firmware/tests/test1_sensors/` | Pot + DS18B20 → Serial | Stable readings; know pot ADC range & noise |
-| **TEST 2** | `firmware/tests/test2_wifi_pot/` | WiFi + minimal web page showing pot | Pot visible in browser & Serial |
-| **TEST 3** | `firmware/tests/test3_pwm_matrix/` | Web UI to build PWM→current table | Matrix saved; dumped to Serial on each edit |
-| **Main app** | `firmware/apps/main/` | Production controller | Full spec in [docs/roadmap.md](docs/roadmap.md) |
+| Phase | Folder | Purpose | Status |
+|-------|--------|---------|--------|
+| **TEST 1** | `firmware/tests/test1_sensors/` | Pot + DS18B20 → Serial | ✅ **Done** — human verified 2026-07-05 ([log](docs/test-log.md)) |
+| **TEST 2** | `firmware/tests/test2_wifi_pot/` | WiFi AP + pot/temp web | ✅ Done ([log](docs/test-log.md)) |
+| **TEST 3** | `firmware/tests/test3_pwm_matrix/` | Pot→PWM + cal matrix | 🔄 Ready to flash |
+| **Main app** | `firmware/apps/main/` | Production controller | ⬜ Planned |
 
 Detailed requirements for each phase: [docs/roadmap.md](docs/roadmap.md)
 
@@ -147,6 +147,7 @@ dorinda-fan-control/
 ├── docs/
 │   ├── hardware.md           # Wiring, pin map, power notes
 │   ├── roadmap.md            # TEST 1–3 + main app acceptance criteria
+│   ├── test-log.md           # Bench results & human verification sign-offs
 │   ├── architecture.md       # BSP dependency, modules, data flow
 │   └── decisions/            # ADR log — why we chose X
 ├── cad/                      # Mechanical drawings (Autodesk → export here)
@@ -160,26 +161,18 @@ dorinda-fan-control/
 
 ---
 
-## Getting started (when firmware lands)
+## Getting started
 
 ```bash
-# Clone with BSP submodule
-git clone --recurse-submodules git@github.com:<you>/dorinda-fan-control.git
-cd dorinda-fan-control
-
-# Or add submodule to existing clone
 git submodule update --init --recursive
+cp secrets.env.example secrets.env   # WIFI_MODE=AP, SSID, password
 
-# Copy secrets template, fill WiFi credentials
-cp firmware/secrets.env.example firmware/secrets.env
-source firmware/secrets.env
-
-# Run TEST 1
-cd firmware
-pio run -e test1 -t upload && pio device monitor
+make test1-dev    # TEST 1 — serial sensors (done)
+make test2-dev    # TEST 2 — WiFi AP + web (done)
+make test3-dev    # TEST 3 — pot→PWM + cal matrix (current)
 ```
 
-*(Commands above are placeholders until TEST 1 is implemented.)*
+See [firmware/README.md](firmware/README.md) and [docs/test-log.md](docs/test-log.md).
 
 ---
 
