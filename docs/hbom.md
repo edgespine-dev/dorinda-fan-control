@@ -122,7 +122,33 @@ DS18B20, 4.7 kΩ resistor, and 12 V fan were **not** on the Amazon list — spec
 
 ---
 
-## Optional / protection
+## Protection / fuses
+
+### HBOM-009 — Supply cable fuse (10 A)
+
+| Field | Value |
+|-------|-------|
+| **Specification** | **10 A** fuse in the **incoming 12 V DC supply cable** to the controller enclosure (inline holder or fuse block). **12 V DC** rated. Protects the **entire** unit — fan, MOSFET, buck, and wiring. Automotive ATO/ATC or marine inline holder acceptable |
+| **Search** | `12V 10A inline fuse holder`, `ATO 10A fuse`, `marine DC fuse 10A` |
+| **Dorinda** | First fuse after boat 12 V tap; upstream of fan (+) and buck branches — see [power diagram](hardware.md#power--grounding) |
+| **Reference** | — |
+| **Archived listing** | — *(Dorinda build — user-specified 2026-07-06)* |
+
+---
+
+### HBOM-010 — Buck branch fuse (1 A glass)
+
+| Field | Value |
+|-------|-------|
+| **Specification** | **1 A** **glass** fuse (**5×20 mm** typical), **quick-blow**, in series on **12 V+ to buck converter only** (HBOM-006). Placed **after** HBOM-009, **before** buck `VIN+`. Protects logic branch if buck or 5 V wiring fails short |
+| **Search** | `5x20mm glass fuse 1A`, `fuse holder 5x20` |
+| **Dorinda** | `12 V+` → **1 A glass** → buck → 5 V → D1 Mini |
+| **Reference** | — |
+| **Archived listing** | — *(Dorinda build — user-specified 2026-07-06)* |
+
+---
+
+## Optional parts
 
 ### HBOM-008 — Rectifier diodes (optional)
 
@@ -148,8 +174,10 @@ DS18B20, 4.7 kΩ resistor, and 12 V fan were **not** on the Amazon list — spec
 | HBOM-006 | Buck XL4015 | 1 | 12 V → **5 V** trimmed, ≥2 A | [0b5MPv1g](https://amzn.eu/d/0b5MPv1g) | B07XRF9NWP |
 | HBOM-007 | Fan 12 V DC | 1 | ≤6 A bench peak | — | — |
 | HBOM-008 | Diode 10A10 (opt.) | 1* | 10 A / 1000 V | [0aHGjEvU](https://amzn.eu/d/0aHGjEvU) | — |
+| HBOM-009 | Fuse supply **10 A** | 1 | Inline on 12 V cable | — | — |
+| HBOM-010 | Fuse buck **1 A** glass | 1 | 5×20 mm, 12 V+ → buck | — | — |
 
-\*Listing sold as 30-piece kit.
+\*HBOM-008 listing sold as 30-piece kit.
 
 ---
 

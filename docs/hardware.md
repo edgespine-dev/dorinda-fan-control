@@ -7,14 +7,15 @@ Enclosure fan controller for **Dorinda**. All low-voltage logic runs at 3.3 V (E
 ## Block diagram
 
 ```
-  12 V supply ─────┬──────────────────────────► 12 V fan (+)
-                   │
-                   ▼
-              [ Buck 12→5 V ]
-                   │
-         5 V ──────┼──────► D1 Mini 5V
-         GND ──────┴──────► D1 Mini GND ──┬──► MOSFET module GND
-                                          └──► DS18B20 GND, Pot GND
+  Boat 12V+ ──[10 A fuse, supply cable]──┬──────────────────► 12 V fan (+)
+                                          │
+                                          ├──[1 A glass fuse]──► Buck 12→5 V
+                                          │
+  Boat 12V− ─────────────────────────────┴──► common GND
+                                                   │
+         5 V ──────────────────────────────────────┼──► D1 Mini 5V
+         GND ──────────────────────────────────────┴──► D1 Mini GND ──┬──► MOSFET GND
+                                                                      └──► DS18B20 GND, Pot GND
 
   D1 Mini D5 (PWM) ──────────────────────► MOSFET TRIG/PWM
   D1 Mini D2 ──────── DS18B20 DATA (+ 4.7k to 3V3)
@@ -37,7 +38,8 @@ Software components: **[docs/sbom.md](sbom.md)**.
 | B50K potentiometer | Linear taper, panel mount — [HBOM-005](hbom.md#hbom-005--manual-setpoint-potentiometer) |
 | Buck converter | 12 V → 5 V, ≥2 A — [HBOM-006](hbom.md#hbom-006--12-v--5-v-dc-dc-converter) |
 | 12 V DC fan | Sized for enclosure — [HBOM-007](hbom.md#hbom-007--12-v-dc-enclosure-fan) |
-| Fuses / protection | *(document in CAD when mechanical design is added)* |
+| Fuse **10 A** | Inline on **supply cable** to whole unit — [HBOM-009](hbom.md#hbom-009--supply-cable-fuse-10-a) |
+| Fuse **1 A** glass | **12 V+ → buck** branch only — [HBOM-010](hbom.md#hbom-010--buck-branch-fuse-1-a-glass) |
 
 ---
 
@@ -64,6 +66,15 @@ A0 accepts **0–3.3 V** max. Pot is wired across 3V3–GND so wiper stays withi
 ---
 
 ## Power & grounding
+
+### Fuses
+
+| Fuse | Location | Protects |
+|------|----------|----------|
+| **10 A** | In **supply cable** from boat 12 V to the controller enclosure | Entire assembly — fan, MOSFET module, buck, and wiring |
+| **1 A glass** | In series on **12 V+** feed to **buck converter only** (before HBOM-006) | Logic branch (ESP + sensors). A buck fault does not rely on the 10 A fuse alone |
+
+Use **12 V DC** rated holders. The 1 A glass fuse is typically **5×20 mm** quick-blow on the low-current buck input. Size the 10 A fuse for the fan’s bench peak (~6 A) with margin — see [HBOM-007](hbom.md#hbom-007--12-v-dc-enclosure-fan).
 
 **Critical:** single common ground reference between:
 
