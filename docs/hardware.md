@@ -35,7 +35,7 @@ Software components: **[docs/sbom.md](sbom.md)**.
 | XY-MOS dual-MOSFET module | Low-side driver — [HBOM-002](hbom.md#hbom-002--low-side-mosfet-driver-module) |
 | DS18B20 | Waterproof probe recommended — [HBOM-003](hbom.md#hbom-003--enclosure-temperature-sensor) |
 | 4.7 kΩ resistor | OneWire pull-up — [HBOM-004](hbom.md#hbom-004--onewire-pull-up-resistor) |
-| B50K potentiometer | Linear taper, panel mount — [HBOM-005](hbom.md#hbom-005--manual-setpoint-potentiometer) |
+| B50K potentiometer | Linear type **B**, panel mount — [HBOM-005](hbom.md#hbom-005--manual-setpoint-potentiometer) |
 | Buck converter | 12 V → 5 V, ≥2 A — [HBOM-006](hbom.md#hbom-006--12-v--5-v-dc-dc-converter) |
 | 12 V DC fan | Sized for enclosure — [HBOM-007](hbom.md#hbom-007--12-v-dc-enclosure-fan) |
 | Fuse **10 A** | Inline on **supply cable** to whole unit — [HBOM-009](hbom.md#hbom-009--supply-cable-fuse-10-a) |
@@ -105,6 +105,9 @@ Use short leads inside the enclosure. If cable length exceeds ~1 m, consider par
 ---
 
 ## Potentiometer wiring
+
+**Part:** **B50K** linear (type B), 3-terminal rotary — [HBOM-005](hbom.md#hbom-005--manual-setpoint-potentiometer).  
+**Mechanical (YYWEi-class):** shaft **Ø6 mm × 15 mm**; panel mount with nut/washer; knob **Ø15 mm** (6 mm bore).
 
 ```
   3V3 ─── outer pin

@@ -90,11 +90,11 @@ DS18B20, 4.7 kΩ resistor, and 12 V fan were **not** on the Amazon list — spec
 
 | Field | Value |
 |-------|-------|
-| **Specification** | **50 kΩ** linear rotary potentiometer (**B50K**), **3-terminal** (wiper + two ends), panel-mount or shaft knob. **Linear** taper (not log/audio). Element rated for low voltage (3.3 V logic) |
-| **Search** | `B50K potentiometer linear`, `50k ohm rotary pot panel mount` |
-| **Dorinda** | **A0** ← wiper; outer pins **3V3** and **GND**; calibrated **ADC 5–1024** ([test-log](test-log.md#test-1--sensor-bring-up)) |
-| **Reference** | `https://amzn.eu/d/0fsmNuAP` |
-| **Archived listing** | **B50K linear potentiometer** *(user-confirmed mapping; Amazon.se page bot-gated 2026-07-06 — paste ASIN/title from order history if available)* |
+| **Specification** | **50 kΩ** linear (**type B / B50K**), **3-terminal** rotary: end–wiper–end. **Panel or PCB mount**, **screw terminals**. Carbon-film element, metal body. Shaft **Ø6 mm × 15 mm** (ridged). Knob **Ø15 mm** (height ~17 mm), bore **Ø6 mm**; nut and washer included. **Not** audio/log taper |
+| **Search** | `B50K linear potentiometer 6mm shaft`, `type B 50K panel mount screw terminal` |
+| **Dorinda** | **A0** ← wiper; outer pins **3V3** and **GND**; **ADC 5–1024** ([test-log](test-log.md#test-1--sensor-bring-up)) |
+| **Reference** | `https://amzn.eu/d/0fsmNuAP` *(unavailable 2026-07-06)* |
+| **Archived listing** | **YYWEi** 22-pc kit: *Linjär potentiometer, 3 terminaler, roterande, B5K B10K B20K **B50K** B100K B250K, vridknapp, muttrar och bricka* — use **one B50K** per controller |
 
 ---
 
@@ -170,7 +170,7 @@ DS18B20, 4.7 kΩ resistor, and 12 V fan were **not** on the Amazon list — spec
 | HBOM-002 | Dual MOSFET driver | 1 | 12 V, 15 A, PWM 0–20 kHz | [05YXt20E](https://amzn.eu/d/05YXt20E) | B0C3LXNK7T |
 | HBOM-003 | DS18B20 probe | 1 | OneWire, 3.3 V, waterproof | — | — |
 | HBOM-004 | Resistor 4.7 kΩ | 1 | ¼ W pull-up | — | — |
-| HBOM-005 | Pot B50K linear | 1 | 50 kΩ linear | [0fsmNuAP](https://amzn.eu/d/0fsmNuAP) | — |
+| HBOM-005 | Pot B50K linear | 1 | Type B, 6 mm shaft, screw terminals | *(dead)* | — |
 | HBOM-006 | Buck XL4015 | 1 | 12 V → **5 V** trimmed, ≥2 A | [0b5MPv1g](https://amzn.eu/d/0b5MPv1g) | B07XRF9NWP |
 | HBOM-007 | Fan 12 V DC | 1 | ≤6 A bench peak | — | — |
 | HBOM-008 | Diode 10A10 (opt.) | 1* | 10 A / 1000 V | [0aHGjEvU](https://amzn.eu/d/0aHGjEvU) | — |
