@@ -29,7 +29,7 @@ Qty for assembly **1** unless noted. Logic at **3.3 V** (ESP8266) or **5 V** (D1
 | [01ntzGoL](https://amzn.eu/d/01ntzGoL) | HBOM-001 | AZDelivery D1 Mini ESP8266-12F (5-pack) |
 | [05YXt20E](https://amzn.eu/d/05YXt20E) | HBOM-002 | Vegena dual MOSFET PWM driver (20-pack) |
 | [0b5MPv1g](https://amzn.eu/d/0b5MPv1g) | HBOM-006 | Hailege XL4015 buck module (5-pack) |
-| [0fsmNuAP](https://amzn.eu/d/0fsmNuAP) | HBOM-005 | B50K linear pot *(user-confirmed; listing gated)* |
+| [0fsmNuAP](https://amzn.eu/d/0fsmNuAP) | HBOM-005 | YYWEi B50K from 22-pc kit *(listing dead)* |
 | [0aHGjEvU](https://amzn.eu/d/0aHGjEvU) | HBOM-008 | 10A10 rectifier diodes 30-pack *(optional)* |
 
 DS18B20, 4.7 kΩ resistor, and 12 V fan were **not** on the Amazon list — spec-only rows below.
