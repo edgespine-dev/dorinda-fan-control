@@ -15,6 +15,7 @@ Smart 12 V enclosure fan controller for **Dorinda** (sailboat electronics bay). 
 | What | Where |
 |------|-------|
 | Hardware wiring & pin map | [docs/hardware.md](docs/hardware.md) |
+| **HBOM / SBOM** (showcase traceability) | [docs/hbom.md](docs/hbom.md) · [docs/sbom.md](docs/sbom.md) |
 | CAD / mechanical | [cad/](cad/) *(Autodesk exports — add when ready)* |
 | Software architecture & BSP dependency | [docs/architecture.md](docs/architecture.md) |
 | **`hw/` driver API policy** | [docs/architecture.md#hardware-layer-hw](docs/architecture.md#hardware-layer-hw) · [ADR-0012](docs/decisions/0012-hw-component-api.md) |
@@ -151,6 +152,8 @@ dorinda-fan-control/
 ├── README.md                 ← you are here
 ├── docs/
 │   ├── hardware.md           # Wiring, pin map, power notes
+│   ├── hbom.md               # Hardware BOM — procurement-neutral specs
+│   ├── sbom.md               # Software BOM overview (firmware v1.0)
 │   ├── roadmap.md            # TEST 1–3 + main app acceptance criteria
 │   ├── test-log.md           # Bench results & human verification sign-offs
 │   ├── architecture.md       # BSP dependency, modules, data flow

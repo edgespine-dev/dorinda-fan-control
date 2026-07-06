@@ -38,6 +38,7 @@ Each ADR follows a lightweight template:
 | [0016](0016-embedded-cal-matrix-main.md) | Main app: embedded bench matrix, no LittleFS | Accepted |
 | [0017](0017-dfc-wifi-shared-boot.md) | Shared `dfc_wifi` AP/STA boot across tests and main | Accepted |
 | [0018](0018-fan-quick-presets.md) | OFF / Silent (~1 V) / FULL quick presets on web UI | Accepted |
+| [0019](0019-hbom-sbom-showcase.md) | HBOM + SBOM docs for showcase traceability | Accepted |
 
 ## Adding a new decision
 

@@ -25,15 +25,18 @@ Enclosure fan controller for **Dorinda**. All low-voltage logic runs at 3.3 V (E
 
 ## Bill of materials (core)
 
+Full **HBOM** with procurement-neutral specs and reference Amazon links: **[docs/hbom.md](hbom.md)**.  
+Software components: **[docs/sbom.md](sbom.md)**.
+
 | Item | Notes |
 |------|-------|
-| Wemos D1 Mini | ESP8266, ESP-12F module |
-| XY-MOS dual-MOSFET module | Low-side driver; see [MOSFET module](#mosfet-module-dual-mos-low-side-driver) |
-| DS18B20 | Waterproof probe recommended for enclosure |
-| 4.7 kΩ resistor | OneWire pull-up, DATA → 3V3 |
-| B50K potentiometer | Linear taper, panel mount |
-| Buck converter | 12 V → 5 V, adequate headroom for fan + ESP peak current |
-| 12 V DC fan | Sized for enclosure volume |
+| Wemos D1 Mini | ESP8266, ESP-12F module — [HBOM-001](hbom.md#hbom-001--microcontroller-board) |
+| XY-MOS dual-MOSFET module | Low-side driver — [HBOM-002](hbom.md#hbom-002--low-side-mosfet-driver-module) |
+| DS18B20 | Waterproof probe recommended — [HBOM-003](hbom.md#hbom-003--enclosure-temperature-sensor) |
+| 4.7 kΩ resistor | OneWire pull-up — [HBOM-004](hbom.md#hbom-004--onewire-pull-up-resistor) |
+| B50K potentiometer | Linear taper, panel mount — [HBOM-005](hbom.md#hbom-005--manual-setpoint-potentiometer) |
+| Buck converter | 12 V → 5 V, ≥2 A — [HBOM-006](hbom.md#hbom-006--12-v--5-v-dc-dc-converter) |
+| 12 V DC fan | Sized for enclosure — [HBOM-007](hbom.md#hbom-007--12-v-dc-enclosure-fan) |
 | Fuses / protection | *(document in CAD when mechanical design is added)* |
 
 ---
