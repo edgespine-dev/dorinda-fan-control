@@ -188,6 +188,7 @@ button.preset-off{background:#475569}
 button.preset-silent{background:#0d9488}
 button.preset-full{background:#b45309}
 .ver{font-size:.7rem;color:#475569;margin-top:2rem;line-height:1.4}
+.disclaimer{font-size:.65rem;color:#64748b;margin-top:.5rem}
 </style></head><body>
 <h1>Dorinda fan</h1>
 <p class=tag id=mode>…</p>
@@ -207,6 +208,7 @@ button.preset-full{background:#b45309}
 <button class="preset preset-full" id=preset-full>FULL</button>
 </div>
 <p class=ver id=ver>…</p>
+<p class=disclaimer>PoC — not certified marine/safety equipment. Use at your own risk.</p>
 <script>
 async function applyPreset(p){
   await fetch('/api/fan/setpoint',{method:'PUT',headers:{'Content-Type':'application/json'},
@@ -435,6 +437,7 @@ void setup()
 
     Serial.println();
     Serial.println("Dorinda fan — main app (REST + pot)  [dfc_wifi boot]");
+    Serial.println("DISCLAIMER: PoC only — not certified marine/safety gear. See docs/DISCLAIMER.md");
     Serial.println("Safety: fan OFF until pot moves >4% or remote command");
 
     if (!dfc_wifi_boot())

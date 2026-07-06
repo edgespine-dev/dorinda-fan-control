@@ -17,6 +17,7 @@ Smart 12 V enclosure fan controller for **Dorinda** (sailboat electronics bay). 
 | Hardware wiring & pin map | [docs/hardware.md](docs/hardware.md) |
 | **HBOM / SBOM** (showcase traceability) | [docs/hbom.md](docs/hbom.md) · [docs/sbom.md](docs/sbom.md) |
 | **Release policy** (tags, SHAs, security posture) | [docs/RELEASE.md](docs/RELEASE.md) · [ADR-0020](docs/decisions/0020-v1-security-posture.md) |
+| **Disclaimer** (liability, marine, electrical) | [docs/DISCLAIMER.md](docs/DISCLAIMER.md) |
 | CAD / mechanical | [cad/](cad/) *(Autodesk exports — add when ready)* |
 | Software architecture & BSP dependency | [docs/architecture.md](docs/architecture.md) |
 | **`hw/` driver API policy** | [docs/architecture.md#hardware-layer-hw](docs/architecture.md#hardware-layer-hw) · [ADR-0012](docs/decisions/0012-hw-component-api.md) |
@@ -210,6 +211,16 @@ Expected contents once added:
 |------|------|
 | [bakerbug-firmware](https://github.com/BakerStack/bakerbug-firmware) | Shared BSP (WiFi, GPIO, TLS, …) — vendored as submodule |
 | *(future)* `dorinda-climate-node` | ESP-NOW remote temp/humidity sensor |
+
+---
+
+## Disclaimer
+
+**Proof-of-concept only** — not certified marine or safety equipment. Electrical work
+and boat installation are **at your own risk**. Software is provided **without warranty**
+(Apache 2.0). V1 uses an **open WiFi AP** without TLS.
+
+Full text: [docs/DISCLAIMER.md](docs/DISCLAIMER.md)
 
 ---
 

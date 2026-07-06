@@ -7,7 +7,7 @@ Reusable baseline for **Dorinda** and similar BakerStack ESP8266 products until 
 and authenticity of the flashed image are **not** cryptographically enforced. Goal is
 **traceability** (know exactly what is running), not secure boot.
 
-We document this **on purpose** — not as an oversight. See [Conscious security posture (V1)](#conscious-security-posture-v1).
+We document this **on purpose** — not as an oversight. See [Conscious security posture (V1)](#conscious-security-posture-v1) and [DISCLAIMER.md](DISCLAIMER.md).
 
 ---
 
