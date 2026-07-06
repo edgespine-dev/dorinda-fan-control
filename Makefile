@@ -24,6 +24,7 @@ export DFC_SRC
 # WiFi credentials for TEST 2+ (copy secrets.env.example → secrets.env)
 SECRETS_ENV := secrets.env
 SECRETS_HDR := $(FW)/include/dfc_secrets.h
+BUILD_INFO_HDR := $(FW)/include/dfc_build_info.h
 WIFI_MODE ?= AP
 WIFI_SSID ?=
 WIFI_PASSWORD ?=
@@ -41,6 +42,23 @@ $(SECRETS_HDR): $(SECRETS_ENV)
 		'#define DFC_WIFI_MODE "$(WIFI_MODE)"' \
 		'#define DFC_WIFI_SSID "$(WIFI_SSID)"' \
 		'#define DFC_WIFI_PASSWORD "$(WIFI_PASSWORD)"' \
+		> $@
+
+# Embed git identity at compile time (see docs/RELEASE.md)
+$(BUILD_INFO_HDR):
+	@mkdir -p $(FW)/include
+	@GIT_SHA=$$(git -C $(ROOT) rev-parse --short=12 HEAD 2>/dev/null || echo unknown); \
+	BSP_SHA=$$(git -C $(ROOT)/vendor/bakerbug-firmware rev-parse --short=12 HEAD 2>/dev/null || echo unknown); \
+	VERSION=$$(git -C $(ROOT) describe --tags --always --dirty 2>/dev/null || echo dev); \
+	BUILD_TS=$$(date -u +%Y-%m-%dT%H:%M:%SZ); \
+	printf '%s\n' \
+		'/* generated at build time — do not commit */' \
+		'#pragma once' \
+		'#define DFC_PRODUCT "dorinda-fan-control"' \
+		"#define DFC_APP_VERSION \"$$VERSION\"" \
+		"#define DFC_GIT_SHA \"$$GIT_SHA\"" \
+		"#define DFC_BSP_GIT_SHA \"$$BSP_SHA\"" \
+		"#define DFC_BUILD_UTC \"$$BUILD_TS\"" \
 		> $@
 
 TEST2_RUN = cd $(FW) && DFC_SRC=tests/test2_wifi_pot/src $(PIO) run -e test2
@@ -131,13 +149,13 @@ test3-monitor:
 
 test3-dev: test3-upload test3-monitor
 
-main: $(SECRETS_HDR) sync-bsp-libdeps
+main: $(SECRETS_HDR) $(BUILD_INFO_HDR) sync-bsp-libdeps
 	@test -n "$(WIFI_SSID)" || (echo "ERROR: WIFI_SSID missing in secrets.env" && exit 1)
 	@test -n "$(WIFI_PASSWORD)" || (echo "ERROR: WIFI_PASSWORD missing in secrets.env" && exit 1)
 	@echo "Main app build — MODE=$(WIFI_MODE) SSID=$(WIFI_SSID)"
 	$(MAIN_RUN)
 
-main-upload: $(SECRETS_HDR) sync-bsp-libdeps
+main-upload: $(SECRETS_HDR) $(BUILD_INFO_HDR) sync-bsp-libdeps
 	@test -n "$(WIFI_SSID)" || (echo "ERROR: WIFI_SSID missing in secrets.env" && exit 1)
 	@test -n "$(WIFI_PASSWORD)" || (echo "ERROR: WIFI_PASSWORD missing in secrets.env" && exit 1)
 	@echo "Main app upload — MODE=$(WIFI_MODE) SSID=$(WIFI_SSID)"

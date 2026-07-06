@@ -2,6 +2,8 @@
 
 Firmware **v1.0** for Dorinda fan controller. Full machine-readable SBOM generation is **planned** (CycloneDX from PlatformIO lockfile). This page is the human-readable index for showcase traceability.
 
+**Release process:** [RELEASE.md](RELEASE.md) — git tags, submodule pin, on-device SHA via `/api/version`.
+
 **Hardware parts:** [HBOM](hbom.md)
 
 ---

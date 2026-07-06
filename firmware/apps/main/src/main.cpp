@@ -8,6 +8,7 @@
 #include <cal/matrix.h>
 #include <control/policy.h>
 #include <dfc_secrets.h>
+#include <dfc_build_info.h>
 #include <dfc_wifi/dfc_wifi.h>
 #include <drivers/ds18b20.h>
 #include <drivers/fan_control.h>
@@ -186,6 +187,7 @@ button.preset{padding:1.1rem .5rem;margin-top:0;font-size:1rem}
 button.preset-off{background:#475569}
 button.preset-silent{background:#0d9488}
 button.preset-full{background:#b45309}
+.ver{font-size:.7rem;color:#475569;margin-top:2rem;line-height:1.4}
 </style></head><body>
 <h1>Dorinda fan</h1>
 <p class=tag id=mode>…</p>
@@ -204,6 +206,7 @@ button.preset-full{background:#b45309}
 <button class="preset preset-silent" id=preset-silent>Silent</button>
 <button class="preset preset-full" id=preset-full>FULL</button>
 </div>
+<p class=ver id=ver>…</p>
 <script>
 async function applyPreset(p){
   await fetch('/api/fan/setpoint',{method:'PUT',headers:{'Content-Type':'application/json'},
@@ -237,10 +240,25 @@ fetch('/api/presets').then(r=>r.json()).then(p=>{
   document.getElementById('preset-full').onclick=()=>applyPreset(p.full);
   document.getElementById('preset-silent').textContent='Silent '+p.silent+'%';
 });
+fetch('/api/version').then(r=>r.json()).then(v=>{
+  document.getElementById('ver').textContent=
+    v.version+' · dorinda '+v.git_sha+' · bsp '+v.bsp_git_sha;
+});
 setInterval(refresh,2000);refresh();
 </script></body></html>
 )raw";
         request->send(200, "text/html", page);
+    });
+
+    server.on("/api/version", HTTP_GET, [](AsyncWebServerRequest* request) {
+        static char json[192];
+        snprintf(json, sizeof(json),
+                 "{\"product\":\"%s\",\"version\":\"%s\",\"git_sha\":\"%s\","
+                 "\"bsp_git_sha\":\"%s\",\"build_utc\":\"%s\"}",
+                 DFC_PRODUCT, DFC_APP_VERSION, DFC_GIT_SHA, DFC_BSP_GIT_SHA, DFC_BUILD_UTC);
+        AsyncWebServerResponse* response = request->beginResponse(200, "application/json", json);
+        response->addHeader("Access-Control-Allow-Origin", "*");
+        request->send(response);
     });
 
     server.on("/api/presets", HTTP_GET, [](AsyncWebServerRequest* request) {
@@ -405,6 +423,8 @@ void setup()
     log_init(SERIAL_BAUD);
     set_log_level(LOG_LEVEL_DEBUG);
     log_printf(LOG_LEVEL_INFO, "dorinda main boot heap=%u", ESP.getFreeHeap());
+    log_printf(LOG_LEVEL_INFO, "build %s dorinda@%s bsp@%s (%s)", DFC_APP_VERSION, DFC_GIT_SHA,
+               DFC_BSP_GIT_SHA, DFC_BUILD_UTC);
 
     dfc_wifi_prepare();
 
