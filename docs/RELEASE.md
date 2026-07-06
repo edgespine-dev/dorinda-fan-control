@@ -114,6 +114,8 @@ From repo root with `secrets.env` configured:
 make main-dev    # build, upload, monitor
 ```
 
+**Git commits:** use author/committer email `daniel@flemstrom.nu` only — never `@ri.se` on this repo.
+
 Record flashed identity in the boat log (photo of `/api/version` or serial line is enough).
 
 **Do not** rely on “I built yesterday” — always check on-device SHAs after power cycle.
