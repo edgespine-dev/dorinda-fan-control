@@ -74,7 +74,7 @@ make main-dev
 |------|--------|
 | **WiFi** | AP default; `dfc_wifi_boot()` |
 | **Timing** | 1 s pot/fan · 5 s temp · `yield()` for radio ([ADR-0014](../docs/decisions/0014-cooperative-loop-timing.md)) |
-| **Boot** | Fan off until pot moves >4 % ([ADR-0015](../docs/decisions/0015-boot-safe-fan-off.md)) |
+| **Boot** | Fan off until pot >4 % **or** remote setpoint ([ADR-0015](../docs/decisions/0015-boot-safe-fan-off.md)) |
 | **Cal** | Embedded bench matrix, no LittleFS ([ADR-0016](../docs/decisions/0016-embedded-cal-matrix-main.md)) |
 | **Manual** | Pot → ramped PWM @ 18 kHz |
 | **Remote** | Slider or API; pot clears remote (>4 % deadband) |

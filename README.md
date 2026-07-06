@@ -117,7 +117,7 @@ Tag **`v1.0`** — see [docs/roadmap.md](docs/roadmap.md) and [docs/architecture
 - **Presets** — OFF · Silent (~1 V / 8 %) · FULL ([ADR-0018](docs/decisions/0018-fan-quick-presets.md))
 - **Remote** — `PUT /api/fan/setpoint`; pot move >4 % clears remote ([ADR-0007](docs/decisions/0007-override-drop-on-pot-move.md))
 - **Forepeak** — `POST /api/climate` with optional `fan_percent`
-- **Boot safety** — PWM off until pot nudged ([ADR-0015](docs/decisions/0015-boot-safe-fan-off.md))
+- **Boot safety** — PWM off until pot nudged **or** remote command ([ADR-0015](docs/decisions/0015-boot-safe-fan-off.md))
 - **Timing** — 1 s control, 5 s temp ([ADR-0014](docs/decisions/0014-cooperative-loop-timing.md))
 
 **Not in v1.0 (planned V2):** thermal fault at 70 °C / 85 °C ([ADR-0008](docs/decisions/0008-safety-thresholds-v2.md)).

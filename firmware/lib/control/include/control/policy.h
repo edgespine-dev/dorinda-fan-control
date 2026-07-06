@@ -12,8 +12,9 @@ enum class Mode : uint8_t
 
 void init(int pot_deadband_pct = 4);
 
-// Fan stays at 0 % until pot moves > deadband from first reading after power-on.
+// Fan stays at 0 % until pot moves > deadband from boot position, or remote commands arm.
 bool boot_armed();
+void arm_boot();
 
 // Call each loop with current pot %; returns fan setpoint 0–100.
 int output_percent(int pot_pct);

@@ -51,6 +51,16 @@ bool boot_armed()
     return g_boot_armed;
 }
 
+void arm_boot()
+{
+    if (g_boot_armed)
+    {
+        return;
+    }
+    g_boot_armed = true;
+    Serial.println("control: boot armed (remote)");
+}
+
 int output_percent(int pot_pct)
 {
     if (!try_boot_arm(pot_pct))
@@ -92,6 +102,7 @@ void set_remote(int percent_0_100, int pot_pct_at_lock)
     {
         percent_0_100 = 100;
     }
+    arm_boot();
     g_mode = Mode::Remote;
     g_remote_pct = percent_0_100;
     g_pot_lock_pct = pot_pct_at_lock;

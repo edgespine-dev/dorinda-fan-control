@@ -10,8 +10,10 @@ The fan drives a **12 V bay load** via MOSFET on D5. On power-up, a drifting pot
 ## Decision
 
 1. **`fan_control_force_off(D5)`** is the first action in `setup()` — pin driven LOW before any driver init.
-2. **`fan_control_init()` is deferred** until the operator moves the pot **more than 4 %** from the position read at first control tick (`control::boot_armed()`).
-3. Until armed, `output_percent()` returns **0**; REST setpoints are accepted but PWM stays off.
+2. **`fan_control_init()` is deferred** until boot is **armed** by either:
+   - moving the pot **more than 4 %** from the first control tick, or
+   - any **remote** command (`PUT /api/fan/setpoint`, presets, `POST /api/climate` with `fan_percent`)
+3. Until armed, `output_percent()` returns **0** for manual pot-only path.
 
 Deadband matches pot override logic (ADR-0007): **4 %** of span (`POT_DEADBAND_PCT`).
 
@@ -24,8 +26,7 @@ Deadband matches pot override logic (ADR-0007): **4 %** of span (`POT_DEADBAND_P
 
 **Negative:**
 
-- Phone / forepeak presets have no effect until pot is nudged once per power cycle
-- Document in UI and operator README
+- Operator must deliberately arm (pot nudge or remote) before 12 V load — no accidental spin on plug-in
 
 **Follow-ups:**
 

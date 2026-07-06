@@ -415,7 +415,7 @@ void setup()
 
     Serial.println();
     Serial.println("Dorinda fan — main app (REST + pot)  [dfc_wifi boot]");
-    Serial.println("Safety: D5 held off until pot moves >4% from boot position");
+    Serial.println("Safety: fan OFF until pot moves >4% or remote command");
 
     if (!dfc_wifi_boot())
     {
@@ -427,7 +427,7 @@ void setup()
     setup_web();
     log_printf(LOG_LEVEL_INFO, "heap after HTTP=%u", ESP.getFreeHeap());
 
-    Serial.printf("Ready: http://%s/  WiFi '%s'  [move pot >4%% to arm fan]\n", device_ip(),
+    Serial.printf("Ready: http://%s/  WiFi '%s'  [pot >4%% or remote to arm fan]\n", device_ip(),
                   DFC_WIFI_SSID);
 }
 
