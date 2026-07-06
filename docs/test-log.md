@@ -117,7 +117,7 @@ Full sweep — human verified 2026-07-05:
 |------|--------|
 | WiFi | AP `dfan` via `dfc_wifi` + BSP softAP ([ADR-0017](decisions/0017-dfc-wifi-shared-boot.md)) |
 | Loop timing | 1 s control / 5 s temp ([ADR-0014](decisions/0014-cooperative-loop-timing.md)) |
-| Boot safety | Fan off until pot >4 % from boot ([ADR-0015](decisions/0015-boot-safe-fan-off.md)) |
+| Boot safety | Fan off until pot >4 % **or** remote command ([ADR-0015](decisions/0015-boot-safe-fan-off.md)) |
 | Cal matrix | Embedded bench_lab defaults ([ADR-0016](decisions/0016-embedded-cal-matrix-main.md)) |
 | REST | `/api/status`, `/api/fan/*`, `/api/climate`, `/api/presets` |
 | Presets | OFF / Silent (8 %) / FULL ([ADR-0018](decisions/0018-fan-quick-presets.md)) |

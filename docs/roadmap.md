@@ -130,14 +130,15 @@ AP ip=192.168.4.1 clients=1 Pot=512 (50%)
 | M7 | Ramped PWM @ 18 kHz (1 s / 6 % steps) | ✅ |
 | M8 | Estimated current from bench matrix | ✅ |
 | M9 | `/api/status` JSON | ✅ |
-| M10 | Boot-safe: fan off until pot arms | ✅ |
+| M10 | Boot-safe: fan off until pot **or** remote arms | ✅ |
 | M11 | `POST /api/climate` for forepeak | ✅ |
 | M12 | Presets OFF / Silent / FULL | ✅ |
 
 ### Control logic (implemented)
 
 ```
-control::output_percent(pot_pct)  // 0 until boot armed
+control::output_percent(pot_pct)  // 0 until boot armed (pot or prior remote)
+control::set_remote(pct, pot)     // arm_boot() + remote mode
 fan_control_set_new_setpoint(output)
 fan_control_loop()                // once per CONTROL_INTERVAL_MS (1 s)
 est_ma = cal::interpolate_ma(pwm)

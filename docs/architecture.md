@@ -14,7 +14,7 @@ How **dorinda-fan-control** is structured, how it uses **bakerbug-firmware**, an
 2. **BSP for platform, drivers for chips, Dorinda libs for product** — do not fork WiFi into this repo
 3. **Cooperative scheduling** — not real-time; 1 s control, 5 s temp; `yield()` for radio ([ADR-0014](decisions/0014-cooperative-loop-timing.md))
 4. **Calibration is data** — bench-measured PWM→mA matrix; embedded on main ([ADR-0016](decisions/0016-embedded-cal-matrix-main.md))
-5. **Boot-safe fan** — D5 held off until pot arms ([ADR-0015](decisions/0015-boot-safe-fan-off.md))
+5. **Boot-safe fan** — D5 held off until pot **or** remote arms ([ADR-0015](decisions/0015-boot-safe-fan-off.md))
 6. **Future ESP-NOW** — control policy accepts pot, remote HTTP, and (later) climate node ([ADR-0009](decisions/0009-esp-now-future-climate-node.md))
 
 ---
@@ -45,7 +45,7 @@ Arduino / ESP8266                  =        Arduino / ESP8266
 | WiFi connect, softAP, logging | **bakerbug BSP** | `bsp_wifi_softap_begin()`, `log_printf` |
 | Chip / actuator drivers | **bakerbug `drivers/`** | `drivers::fan_control_*`, `drivers::pot_*` |
 | Pin map | **dorinda `hw/pins.h`** | `FAN_PWM` → D5 |
-| Manual vs remote, boot arm | **`control/`** | `control::set_remote()`, `boot_armed()` |
+| Manual vs remote, boot arm | **`control/`** | `set_remote()` → `arm_boot()`, `boot_armed()` |
 | Cal matrix | **`cal_matrix/`** | `cal::interpolate_ma()` |
 | WiFi boot glue | **`dfc_wifi/`** | `dfc_wifi_boot()` |
 | HTTP, UI, tick orchestration | **`apps/main/`** | `setup_web()`, `loop()` |
@@ -65,7 +65,14 @@ Not a real-time system. The loop body is intentionally idle between ticks.
 
 **Boot sequence:** `fan_control_force_off` → init drivers → `dfc_wifi_boot()` → `setup_web()` → ready.
 
-Fan PWM driver init (`fan_control_init`) runs only after **boot arm** (pot moved >4 % from first sample).
+Fan PWM driver init (`fan_control_init`) runs only after **boot arm**:
+
+| Arm path | Trigger |
+|----------|---------|
+| **Pot** | Pot moves >4 % from first control sample |
+| **Remote** | `PUT /api/fan/setpoint`, presets, or `POST /api/climate` with `fan_percent` → `control::arm_boot()` |
+
+Until armed, manual pot path returns 0 %; remote commands arm and apply in one step.
 
 ---
 
@@ -80,7 +87,7 @@ enum class Mode { Manual, Remote };
 | Mode | Source | Clears when |
 |------|--------|-------------|
 | **Manual** | Pot → `output_percent` | — |
-| **Remote** | `PUT /api/fan/setpoint`, `POST /api/climate` | Pot moves > deadband ([ADR-0007](decisions/0007-override-drop-on-pot-move.md)) |
+| **Remote** | `PUT /api/fan/setpoint`, `POST /api/climate` | Pot moves > deadband ([ADR-0007](decisions/0007-override-drop-on-pot-move.md)); also **arms** fan if still boot-latched ([ADR-0015](decisions/0015-boot-safe-fan-off.md)) |
 
 `Fault` / thermal safety ([ADR-0008](decisions/0008-safety-thresholds-v2.md)) — **planned V2**, not in v1.0.
 

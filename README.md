@@ -44,7 +44,7 @@ Smart 12 V enclosure fan controller for **Dorinda** (sailboat electronics bay). 
 │  • Read DS18B20 enclosure temp (D2)                         │
 │  • PWM fan via MOSFET module (D5)                           │
 │  • Lookup PWM → current from bench cal matrix               │
-│  • Fan OFF at boot until pot moves ([ADR-0015](docs/decisions/0015-boot-safe-fan-off.md)) │
+│  • Fan OFF at boot until pot >4 % **or** remote arms ([ADR-0015](docs/decisions/0015-boot-safe-fan-off.md)) │
 └──────────────────────────┬──────────────────────────────────┘
                            │ 12 V low-side switch
 ┌──────────────────────────▼──────────────────────────────────┐

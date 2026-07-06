@@ -1,4 +1,4 @@
-# ADR-0015: Fan PWM off at power-on until pot is moved
+# ADR-0015: Fan PWM off at power-on until armed (pot or remote)
 
 **Status:** Accepted  
 **Date:** 2026-07-06

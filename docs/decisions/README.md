@@ -34,7 +34,7 @@ Each ADR follows a lightweight template:
 | [0012](0012-hw-component-api.md) | Driver API — init, set, get, loop (`drivers::`) | Accepted |
 | [0013](0013-promote-hw-drivers-to-bakerbug.md) | Pot, DS18B20, fan_control in bakerbug `drivers/`; Dorinda = pins + init | Accepted |
 | [0014](0014-cooperative-loop-timing.md) | 1 s control / 5 s temp — cooperative loop, WiFi-first boot | Accepted |
-| [0015](0015-boot-safe-fan-off.md) | Fan PWM off until pot moves >4 % from boot position | Accepted |
+| [0015](0015-boot-safe-fan-off.md) | Fan PWM off until pot >4 % or remote arms | Accepted |
 | [0016](0016-embedded-cal-matrix-main.md) | Main app: embedded bench matrix, no LittleFS | Accepted |
 | [0017](0017-dfc-wifi-shared-boot.md) | Shared `dfc_wifi` AP/STA boot across tests and main | Accepted |
 | [0018](0018-fan-quick-presets.md) | OFF / Silent (~1 V) / FULL quick presets on web UI | Accepted |
