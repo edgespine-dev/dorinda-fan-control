@@ -2,7 +2,7 @@
 
 Smart 12 V enclosure fan controller for **Dorinda** (sailboat electronics bay). Built on **ESP8266**, with incremental bring-up tests, a calibration workflow for PWM→current mapping, and a production web UI for manual control with safety overrides.
 
-> **If you are reading this after a long break:** start with [Quick orientation](#quick-orientation). **TEST 1–2 done** (human verified 2026-07-05) — next up is **TEST 3** (PWM + cal matrix on bench with 12 V).
+> **If you are reading this after a long break:** start with [Quick orientation](#quick-orientation). **v1.0 shipped** (2026-07-06) — main app with REST, pot, bench cal, presets. Next: **Safety V2** (thermal) · **on-boat install** · **ESP-NOW** climate node.
 
 [![Platform](https://img.shields.io/badge/platform-ESP8266-blue)]()
 [![Framework](https://img.shields.io/badge/framework-Arduino-orange)]()
@@ -19,10 +19,10 @@ Smart 12 V enclosure fan controller for **Dorinda** (sailboat electronics bay). 
 | Software architecture & BSP dependency | [docs/architecture.md](docs/architecture.md) |
 | **`hw/` driver API policy** | [docs/architecture.md#hardware-layer-hw](docs/architecture.md#hardware-layer-hw) · [ADR-0012](docs/decisions/0012-hw-component-api.md) |
 | Test phases & main app spec | [docs/roadmap.md](docs/roadmap.md) |
-| **Design decision log (ADR)** | [docs/decisions/](docs/decisions/) |
-| Firmware source (when implemented) | [firmware/](firmware/) |
+| **Design decision log (ADR)** | [docs/decisions/](docs/decisions/) — [0014](docs/decisions/0014-cooperative-loop-timing.md) timing · [0015](docs/decisions/0015-boot-safe-fan-off.md) boot safety · [0018](docs/decisions/0018-fan-quick-presets.md) presets |
+| Firmware | [firmware/](firmware/) — `make main-dev` |
 
-**Build philosophy:** small, verifiable steps. Each TEST program proves one layer before the next. The main app only ships after TEST 1–3 pass on real hardware.
+**Build philosophy:** incremental TEST programs, then production main app. **v1.0** runs cooperative 1 s / 5 s ticks — not a hard real-time system ([ADR-0014](docs/decisions/0014-cooperative-loop-timing.md)).
 
 **External dependency:** this repo consumes the **Board Support Package (BSP)** from [bakerbug-firmware](https://github.com/BakerStack/bakerbug-firmware) for WiFi and other platform abstractions — not MQTT or cloud stack.
 
@@ -33,9 +33,9 @@ Smart 12 V enclosure fan controller for **Dorinda** (sailboat electronics bay). 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  Operator (browser on phone/laptop)                         │
-│  • See pot position, temperature, estimated current         │
-│  • Override fan speed with slider                           │
-│  • Override clears when physical pot is moved                │
+│  • Pot, temp, estimated current                           │
+│  • Slider remote + OFF / Silent / FULL presets              │
+│  • Remote clears when physical pot moves (>4 %)             │
 └──────────────────────────┬──────────────────────────────────┘
                            │ HTTP (WiFi)
 ┌──────────────────────────▼──────────────────────────────────┐
@@ -43,14 +43,16 @@ Smart 12 V enclosure fan controller for **Dorinda** (sailboat electronics bay). 
 │  • Read B50K pot (A0)                                       │
 │  • Read DS18B20 enclosure temp (D2)                         │
 │  • PWM fan via MOSFET module (D5)                           │
-│  • Lookup PWM → current from calibration matrix (TEST 3)    │
+│  • Lookup PWM → current from bench cal matrix               │
+│  • Fan OFF at boot until pot moves ([ADR-0015](docs/decisions/0015-boot-safe-fan-off.md)) │
 └──────────────────────────┬──────────────────────────────────┘
                            │ 12 V low-side switch
 ┌──────────────────────────▼──────────────────────────────────┐
 │  12 V fan + XY-MOS MOSFET module                            │
 └─────────────────────────────────────────────────────────────┘
 
-Future: remote ESP8266/ESP32 climate node ──ESP-NOW──► auto mode
+Future: forepeak ESP32 ──HTTP POST /api/climate──► remote fan setpoint
+(planned ESP-NOW link — [ADR-0009](docs/decisions/0009-esp-now-future-climate-node.md))
 ```
 
 ---
@@ -99,28 +101,30 @@ Development proceeds in locked order. Do not skip ahead.
 |-------|--------|---------|--------|
 | **TEST 1** | `firmware/tests/test1_sensors/` | Pot + DS18B20 → Serial | ✅ **Done** — human verified 2026-07-05 ([log](docs/test-log.md)) |
 | **TEST 2** | `firmware/tests/test2_wifi_pot/` | WiFi AP + pot/temp web | ✅ Done ([log](docs/test-log.md)) |
-| **TEST 3** | `firmware/tests/test3_pwm_matrix/` | Pot→PWM + cal matrix | ✅ Bench lab cal |
-| **Main app** | `firmware/apps/main/` | Production REST controller | 🔄 Ready to flash |
+| **TEST 3** | `firmware/tests/test3_pwm_matrix/` | Pot→PWM + cal matrix (regression) | ✅ Bench cal in repo |
+| **Main app** | `firmware/apps/main/` | Production REST controller | ✅ **v1.0** |
 
 Detailed requirements for each phase: [docs/roadmap.md](docs/roadmap.md)
 
 ---
 
-## Main application (target behaviour)
+## Main application (v1.0)
 
-When TEST 1–3 are complete, the main app provides:
+Tag **`v1.0`** — see [docs/roadmap.md](docs/roadmap.md) and [docs/architecture.md](docs/architecture.md).
 
-- **WiFi** — connect using credentials from build-time secrets (same pattern as bakerbug-firmware)
-- **Web server** — single responsive page:
-  - Live **pot position** (ADC + normalized %)
-  - **Slider override** for fan PWM (0–100 %)
-  - **Override drop:** any physical pot movement cancels override; pot regains authority
-  - **PWM output** to MOSFET (D5)
-  - **Estimated current draw** from calibration matrix (TEST 3 data)
-  - **Enclosure temperature** from DS18B20
-- **Safety (V2 of main app):**
-  - Temp > 70 °C → force fan 100 %
-  - Temp > 85 °C → fault state, PWM disabled, clear Serial message
+- **WiFi** — AP default (`dfan`); STA optional via `secrets.env` ([ADR-0017](docs/decisions/0017-dfc-wifi-shared-boot.md))
+- **Web** — dashboard with pot, temp, est. mA, remote slider
+- **Presets** — OFF · Silent (~1 V / 8 %) · FULL ([ADR-0018](docs/decisions/0018-fan-quick-presets.md))
+- **Remote** — `PUT /api/fan/setpoint`; pot move >4 % clears remote ([ADR-0007](docs/decisions/0007-override-drop-on-pot-move.md))
+- **Forepeak** — `POST /api/climate` with optional `fan_percent`
+- **Boot safety** — PWM off until pot nudged ([ADR-0015](docs/decisions/0015-boot-safe-fan-off.md))
+- **Timing** — 1 s control, 5 s temp ([ADR-0014](docs/decisions/0014-cooperative-loop-timing.md))
+
+**Not in v1.0 (planned V2):** thermal fault at 70 °C / 85 °C ([ADR-0008](docs/decisions/0008-safety-thresholds-v2.md)).
+
+```bash
+make main-dev    # from repo root — upload + serial monitor
+```
 
 ---
 
@@ -132,9 +136,9 @@ A separate ESP-based **remote humidity + temperature node** will talk to the fan
 
 This is **out of scope** for the initial release but drives architecture choices today:
 
-- Keep fan control logic separate from UI / transport
-- Store calibration matrix in a loadable format (SPIFFS or JSON)
-- Reserve a `ControlMode` enum: `MANUAL`, `OVERRIDE`, `AUTO` (stubbed until ESP-NOW node exists)
+- Keep fan control in `control/` lib separate from HTTP
+- Bench matrix in repo + embedded on main ([ADR-0016](docs/decisions/0016-embedded-cal-matrix-main.md))
+- `control::Mode`: `Manual`, `Remote` — `Auto` when ESP-NOW node exists
 
 Details: [docs/architecture.md](docs/architecture.md#future-esp-now-climate-node)
 
@@ -153,9 +157,15 @@ dorinda-fan-control/
 │   └── decisions/            # ADR log — why we chose X
 ├── cad/                      # Mechanical drawings (Autodesk → export here)
 ├── firmware/
-│   ├── platformio.ini        # (planned) PlatformIO project root
-│   ├── tests/                # Incremental bring-up programs
-│   └── apps/main/            # Production firmware
+│   ├── platformio.ini
+│   ├── lib/
+│   │   ├── hw/               # pins.h only
+│   │   ├── control/          # manual / remote policy
+│   │   ├── cal_matrix/       # PWM → mA
+│   │   └── dfc_wifi/         # AP/STA boot
+│   ├── apps/main/            # Production firmware (v1.0)
+│   ├── tests/                # TEST 1–3 bring-up
+│   └── data/cal_matrix.json  # Bench cal (canonical)
 └── vendor/
     └── bakerbug-firmware/    # git submodule → BSP only
 ```
@@ -170,8 +180,8 @@ cp secrets.env.example secrets.env   # WIFI_MODE=AP, SSID, password
 
 make test1-dev    # TEST 1 — serial sensors (done)
 make test2-dev    # TEST 2 — WiFi AP + web (done)
-make test3-dev    # TEST 3 — regression / cal UI
-make main-dev     # Main app — REST + pot (current)
+make test3-dev    # TEST 3 — cal regression (LittleFS)
+make main-dev     # Main app v1.0 — REST + pot + presets
 ```
 
 See [firmware/README.md](firmware/README.md) and [docs/test-log.md](docs/test-log.md).

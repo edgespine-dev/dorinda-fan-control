@@ -1,77 +1,101 @@
 # Firmware
 
-PlatformIO project for Dorinda fan controller.
+PlatformIO project for Dorinda fan controller. **Release:** main app `v1.0`.
 
 ## Layout
 
 ```
 firmware/
 ├── platformio.ini
-├── lib/hw/                    # Dorinda pin map only (`hw/pins.h`)
+├── lib/
+│   ├── hw/                    # Dorinda pin map (`hw/pins.h`)
+│   ├── control/               # Manual / remote policy, boot arm
+│   ├── cal_matrix/            # PWM → mA (embedded + TEST 3 LittleFS)
+│   └── dfc_wifi/              # AP/STA boot from secrets.env
+├── apps/main/                 # Production REST app (v1.0)
 ├── tests/
-│   └── test1_sensors/         # TEST 1 — serial only
-└── apps/main/                 # Production REST app
+│   ├── test1_sensors/
+│   ├── test2_wifi_pot/
+│   └── test3_pwm_matrix/
+└── data/
+    └── cal_matrix.json        # Canonical bench cal (bench_lab)
 ```
 
-**BSP:** `vendor/bakerbug-firmware` (git submodule). Used from TEST 2 onward for WiFi — not linked in TEST 1.
+**Drivers:** `vendor/bakerbug-firmware/firmware/lib/drivers/` — pot, DS18B20, fan_control.  
+**BSP:** WiFi, log — linked from TEST 2 onward.
 
-## WiFi credentials (TEST 2+)
+Design: [docs/architecture.md](../docs/architecture.md) · ADRs [0014](../docs/decisions/0014-cooperative-loop-timing.md)–[0018](../docs/decisions/0018-fan-quick-presets.md).
+
+## WiFi credentials
 
 ```bash
-cp secrets.env.example secrets.env   # edit SSID/password
-make test2-upload
+cp secrets.env.example secrets.env   # WIFI_MODE=AP, SSID, password (≥8 chars)
 ```
 
-## TEST 1 — build & flash
+Generated at build: `firmware/include/dfc_secrets.h`.
+
+## TEST 1 — sensors (serial)
 
 ```bash
-make test1              # compile
-make test1-upload       # flash D1 Mini
-make test1-monitor      # serial @ 115200
-# or
-make test1-dev          # upload + monitor
+make test1-dev
 ```
 
-Expected serial output (once per second):
+No WiFi, no fan PWM — safe without 12 V.
 
-```
-Pot=512 Temp=32.4C
-```
-
-No fan PWM in TEST 1 — safe to bench without 12 V connected.
-
-## TEST 2 — WiFi + pot web page
-
-**Boat default:** no shore WiFi — ESP creates its own AP. Phone joins that network.
-
-Credentials: repo-root `secrets.env` (gitignored). `make test2` generates `firmware/include/dfc_secrets.h` from it before compile.
+## TEST 2 — WiFi + pot web
 
 ```bash
-cp secrets.env.example secrets.env   # WIFI_MODE=AP, SSID, password (min 8 chars)
-make test2-upload
-make test2-monitor
+make test2-dev
 ```
 
-1. Serial shows `AP OK ssid=… ip=192.168.4.1`
-2. On phone: join WiFi **`<WIFI_SSID>`** from `secrets.env`
-3. Open **`http://192.168.4.1/`** — pot, ADC, temp; auto-refresh 1 s
+1. Join AP from `secrets.env` (default SSID in secrets)
+2. `http://192.168.4.1/` — pot, temp; `/api/status`
 
-iOS may show **"Weak Security"** on the AP — normal for ESP8266 (WPA2 only, no WPA3).
+Uses `dfc_wifi` + BSP softAP ([ADR-0017](../docs/decisions/0017-dfc-wifi-shared-boot.md)).
 
-JSON API: `/api/status`
+## TEST 3 — PWM + cal matrix (regression)
 
-## Main app — REST + pot (current)
+**Requires 12 V + fan.** LittleFS + `/cal` editor. Bench matrix already in repo — use TEST 3 only to re-measure.
 
 ```bash
+make test3-dev
+```
+
+## Main app — REST + pot (v1.0)
+
+```bash
+# from repo root (not firmware/)
 make main-dev
 ```
 
-- **Manual:** pot → fan (ramped)
-- **Remote:** `PUT /api/fan/setpoint` (phone or forepeak ESP32); pot move clears remote
-- **Dashboard:** `/` with slider; **API:** [docs/architecture.md](../docs/architecture.md#rest-api-main-app)
-- Bench cal matrix seeds on first boot
+### Behaviour
 
-Forepeak node example (sweet spot ~42 %):
+| Area | Detail |
+|------|--------|
+| **WiFi** | AP default; `dfc_wifi_boot()` |
+| **Timing** | 1 s pot/fan · 5 s temp · `yield()` for radio ([ADR-0014](../docs/decisions/0014-cooperative-loop-timing.md)) |
+| **Boot** | Fan off until pot moves >4 % ([ADR-0015](../docs/decisions/0015-boot-safe-fan-off.md)) |
+| **Cal** | Embedded bench matrix, no LittleFS ([ADR-0016](../docs/decisions/0016-embedded-cal-matrix-main.md)) |
+| **Manual** | Pot → ramped PWM @ 18 kHz |
+| **Remote** | Slider or API; pot clears remote (>4 % deadband) |
+
+### Web UI
+
+- Live pot %, fan %, bay temp, est. mA
+- Slider + **Apply remote** / **Back to pot**
+- **OFF · Silent · FULL** — [ADR-0018](../docs/decisions/0018-fan-quick-presets.md)
+
+### REST API
+
+| Method | Path | Notes |
+|--------|------|-------|
+| GET | `/api/status` | Full state |
+| GET | `/api/presets` | `{"off":0,"silent":8,"full":100}` |
+| PUT | `/api/fan/setpoint` | `{"percent":0-100}` |
+| DELETE | `/api/fan/remote` | Back to pot |
+| POST | `/api/climate` | Forepeak node |
+
+Forepeak example:
 
 ```bash
 curl -X POST http://192.168.4.1/api/climate \
@@ -79,23 +103,23 @@ curl -X POST http://192.168.4.1/api/climate \
   -d '{"temp_c":22,"humidity_pct":55,"co2_ppm":800,"fan_percent":42}'
 ```
 
-## TEST 3 — regression / cal UI
+Full reference: [docs/architecture.md](../docs/architecture.md#rest-api-main-app).
 
-**Requires 12 V + fan connected.** Pot → `fan_set_new_setpoint()`; PWM @ 18 kHz, **ramped 6 % / 200 ms** (`fan_control_loop()`).
+### Serial
 
-```bash
-make test3-upload
-make test3-monitor
+```
+AP manual ip=192.168.4.1 cli=0 Pot=0 (0%) Fan=0% PWM=0 Temp=23.5C Est=0 mA [BOOT OFF]
 ```
 
-1. Dashboard: pot → PWM, temp, estimated mA (after cal)
-2. **`/cal`** — edit matrix rows (persists in LittleFS); first boot seeds Dorinda bench defaults if empty
-3. Serial dumps full matrix on each save
+## Build notes
 
-Suggested knots: 0, 64, 128, 192, 256, 384, 512, 768, 1023.
+- `make sync-bsp-libdeps` — clears stale BSP cache before test2/test3/main builds
+- `make main-erase` — full chip erase if flash layout was experimented with
 
 ## Submodule
 
 ```bash
 git submodule update --init --recursive
 ```
+
+Pin submodule commit when tagging releases.

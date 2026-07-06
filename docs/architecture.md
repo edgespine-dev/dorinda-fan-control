@@ -1,249 +1,120 @@
 # Architecture
 
-How **dorinda-fan-control** is structured, how it uses **bakerbug-firmware BSP**, and what to preserve for future ESP-NOW auto mode.
+How **dorinda-fan-control** is structured, how it uses **bakerbug-firmware**, and what to preserve for future ESP-NOW auto mode.
 
-**Rationale for major choices:** [docs/decisions/](decisions/)
+**Rationale for major choices:** [docs/decisions/](decisions/) — especially [ADR-0014](decisions/0014-cooperative-loop-timing.md) (loop timing), [ADR-0015](decisions/0015-boot-safe-fan-off.md) (boot safety), [ADR-0017](decisions/0017-dfc-wifi-shared-boot.md) (WiFi).
+
+**Release:** `v1.0` — main app on ESP8266 with REST + pot + bench cal matrix.
 
 ---
 
 ## Design principles
 
-1. **Test layers in order** — sensors, then network, then calibration, then product logic
-2. **BSP for platform, local code for product** — do not fork WiFi/TLS into this repo
-3. **Thin main loop** — hardware polling, control policy, and HTTP handled in separate modules
-4. **Calibration is data** — PWM→current matrix is not hard-coded; it comes from TEST 3
-5. **Future ESP-NOW** — control policy accepts multiple inputs (local pot, web override, remote climate)
-6. **Consistent `hw/` API** — board peripherals use init / set / get / loop; see [Hardware layer](#hardware-layer-hw)
+1. **Test layers in order** — sensors, then network, then calibration, then product logic ([ADR-0004](decisions/0004-incremental-test-phases.md))
+2. **BSP for platform, drivers for chips, Dorinda libs for product** — do not fork WiFi into this repo
+3. **Cooperative scheduling** — not real-time; 1 s control, 5 s temp; `yield()` for radio ([ADR-0014](decisions/0014-cooperative-loop-timing.md))
+4. **Calibration is data** — bench-measured PWM→mA matrix; embedded on main ([ADR-0016](decisions/0016-embedded-cal-matrix-main.md))
+5. **Boot-safe fan** — D5 held off until pot arms ([ADR-0015](decisions/0015-boot-safe-fan-off.md))
+6. **Future ESP-NOW** — control policy accepts pot, remote HTTP, and (later) climate node ([ADR-0009](decisions/0009-esp-now-future-climate-node.md))
 
 ---
 
-## Hardware layer (`hw/`)
-
-Board-local drivers live in `firmware/lib/hw/`. They are **not** part of bakerbug BSP.
-
-### How this maps to bakerbug-firmware
-
-[bakerbug-firmware](https://github.com/BakerStack/bakerbug-firmware) uses a **four-layer** stack:
+## Layer map (v1.0)
 
 ```
-┌─────────────────────────────────┐
-│  Application (main.cpp)         │  ← dorinda: tests/, apps/main/
-├─────────────────────────────────┤
-│  Software modules (mqtt/, …)    │  ← dorinda: (not used — ADR-0003)
-├─────────────────────────────────┤
-│  Drivers (lib/drivers/)         │  ← chip drivers, e.g. SCD41
-├─────────────────────────────────┤
-│  BSP (bsp/)                       │  ← WiFi, GPIO, I2C, TLS, time, log
-└─────────────────────────────────┘
-```
-
-**Dorinda-fan-control** vendors only the **BSP** slice (WiFi, log) from bakerbug. Our local **`hw/`** library plays the same *role* as bakerbug’s **`drivers/`** — but stays in this repo because it is **product- and board-specific** (Dorinda pin map, pot ADC calibration 5–1024, fan ramp policy).
-
-```
-dorinda-fan-control                    bakerbug-firmware (submodule)
-─────────────────────                  ─────────────────────────────
-tests / apps/main          ≈           Application
-  ControlPolicy, WebServer, cal
+dorinda-fan-control                         bakerbug-firmware (submodule)
+─────────────────────                       ─────────────────────────────
+firmware/apps/main/src/main.cpp    ≈        Application
+  HTTP routes, loop ticks, presets
        │
-firmware/lib/hw/           ≈           lib/drivers/   (generic chip drivers)
-  pot, temp_sensor, fan_control              SCD41, watchdog, …
-       │                                        │
-vendor/…/bsp/              =           bsp/           (platform HAL)
-  wifi, log                                gpio, i2c, tls, …
+firmware/lib/control/              ≈        Product policy (manual / remote)
+firmware/lib/cal_matrix/           ≈        PWM → mA lookup
+firmware/lib/dfc_wifi/             ≈        Dorinda WiFi boot (secrets → AP/STA)
+firmware/lib/hw/pins.h             ≈        Board pin map only
        │
-Arduino / ESP8266          =           Arduino / ESP8266
+vendor/…/lib/drivers/              =        ds18b20, potentiometer, fan_control
+vendor/…/bsp/                      =        wifi, log
+       │
+Arduino / ESP8266                  =        Arduino / ESP8266
 ```
 
-### What goes where (promotion rules)
+### What goes where
 
-| Code | Layer | Example |
-|------|-------|---------|
-| WiFi connect, logging | **bakerbug BSP** | `bsp_wifi_connect()` — already shared |
-| Generic GPIO / I2C / PWM primitive | **bakerbug BSP** | `bsp_gpio_*` — if we need portability across MCUs |
-| Reusable **chip** driver (no product pins) | **bakerbug `drivers/`** | DS18B20 wrapper usable on any D2 + pull-up board |
-| **This board’s** pins + scaling + policy | **dorinda `hw/`** | `pot_init(5,1024)`, `fan_control` ramp on D5 |
-| Override, cal matrix, safety, HTTP | **dorinda app / lib** | `cal::`, `ControlPolicy`, web routes |
-
-**Pot and fan should not move to BSP.** BSP answers *“how does this MCU do WiFi/GPIO?”* — not *“how does Dorinda’s B50K map to percent?”* or *“how fast do we ramp the bay fan?”*.
-
-**When to promote upstream to bakerbug:**
-
-| Trigger | Move to |
-|---------|---------|
-| Reusable chip or actuator driver (any pin, init-time config) | **`bakerbug-firmware/lib/drivers/`** + README |
-| MCU primitive shared ESP8266/ESP32 | `bakerbug-firmware/bsp/` |
-| Board pin map + product calibration defaults | **dorinda `hw/pins.h` + `setup()`** |
-
-**Target state ([ADR-0013](decisions/0013-promote-hw-drivers-to-bakerbug.md)):** `ds18b20`, `potentiometer`, and `fan_control` live as full drivers in bakerbug with per-driver READMEs. Dorinda keeps **`hw/pins.h`** and **`setup()` init calls** only; no local driver `.cpp` after migration.
-
-Until that migration lands, dorinda called local `hw/` implementations — **done 2026-07-05**: drivers live in bakerbug submodule; dorinda keeps `hw/pins.h` + init calls only.
+| Code | Location | Example |
+|------|----------|---------|
+| WiFi connect, softAP, logging | **bakerbug BSP** | `bsp_wifi_softap_begin()`, `log_printf` |
+| Chip / actuator drivers | **bakerbug `drivers/`** | `drivers::fan_control_*`, `drivers::pot_*` |
+| Pin map | **dorinda `hw/pins.h`** | `FAN_PWM` → D5 |
+| Manual vs remote, boot arm | **`control/`** | `control::set_remote()`, `boot_armed()` |
+| Cal matrix | **`cal_matrix/`** | `cal::interpolate_ma()` |
+| WiFi boot glue | **`dfc_wifi/`** | `dfc_wifi_boot()` |
+| HTTP, UI, tick orchestration | **`apps/main/`** | `setup_web()`, `loop()` |
 
 ---
 
-### Component policy
+## Main loop (v1.0)
 
-When adding or changing a peripheral, follow this checklist:
+Not a real-time system. The loop body is intentionally idle between ticks.
 
-| Step | Action |
-|------|--------|
-| 1 | Add pin constant(s) to `hw/pins.h`; update [hardware.md](hardware.md) |
-| 2 | Add `include/hw/<name>.h` + `src/<name>.cpp` (one component per pair) |
-| 3 | Implement the API roles below — only expose what callers need |
-| 4 | Prove in the smallest TEST phase before wiring into main app |
-| 5 | Document non-obvious behaviour in the header or an ADR |
+| Tick | Period | Work |
+|------|--------|------|
+| Control | 1 s | Pot read, `control::output_percent`, fan setpoint + one ramp step |
+| Temperature | 5 s | DS18B20 (blocking OneWire — keep away from AP bring-up) |
+| Report | 1 s | Serial status line |
+| Always | every `loop()` | `yield()` for WiFi / AsyncTCP |
 
-### API roles (naming)
+**Boot sequence:** `fan_control_force_off` → init drivers → `dfc_wifi_boot()` → `setup_web()` → ready.
 
-| Role | Pattern | Example |
-|------|---------|---------|
-| **Init** | `<name>_init(...)` | `pot_init(5, 1024)`, `fan_init(D5, 200, 6)` |
-| **Command** | `<name>_set_*`, `<name>_read_*` | `fan_set_new_setpoint(42)`, `temp_read_celsius(&t)` |
-| **Get state** | `<name>_get_*` | `fan_get_setpoint()`, `fan_get_current_value()` |
-| **Peek / raw** | `*_raw` or `read_raw` | `pot_read_raw()`, `fan_get_pwm_raw()` — debug & cal only |
-| **Loop** | `<name>_*_loop()` | `fan_control_loop()` — call from `loop()`, never from HTTP |
+Fan PWM driver init (`fan_control_init`) runs only after **boot arm** (pot moved >4 % from first sample).
 
-**Domain units at the boundary:** fan and pot speak **0–100 %**; temperature in **°C**. Raw PWM (0–1023) and ADC counts stay inside `hw/` except for calibration UI and matrix storage.
+---
 
-**No blocking I/O in async handlers:** read sensors and run `fan_control_loop()` in `loop()`; web routes serve cached structs (see TEST 2).
+## Control modes
 
-### Current modules
-
-| File | Responsibility |
-|------|----------------|
-| `pins.h` | Single pin map for Dorinda D1 Mini |
-| `pot` | Calibrated ADC → 0–100 % |
-| `temp_sensor` | DS18B20 → °C |
-| `fan_control` | Percent setpoint, ramped PWM @ 18 kHz to MOSFET |
-
-Typical main-loop usage:
+Implemented in `firmware/lib/control/`:
 
 ```cpp
-drivers::pot_init(hw::pins::POT, 5, 1024);
-drivers::fan_control_init(hw::pins::FAN_PWM, 200, 6, 18000);
-
-void loop() {
-    drivers::fan_control_loop();
-    const int pot_pct = drivers::pot_read_value_percentage();
-    drivers::fan_control_set_new_setpoint(pot_pct);
-    // ... cache for web, control policy, safety ...
-}
+enum class Mode { Manual, Remote };
 ```
 
-### What does **not** belong in `hw/`
+| Mode | Source | Clears when |
+|------|--------|-------------|
+| **Manual** | Pot → `output_percent` | — |
+| **Remote** | `PUT /api/fan/setpoint`, `POST /api/climate` | Pot moves > deadband ([ADR-0007](decisions/0007-override-drop-on-pot-move.md)) |
 
-| Layer | Examples |
-|-------|----------|
-| `hw/` | Pin read, PWM write, sensor driver, unit scaling |
-| App / lib | Override logic, cal matrix, HTTP, safety thresholds |
-| BSP | WiFi, logging, generic GPIO if shared across products |
-
----
-
-## Dependency on bakerbug-firmware
-
-This repo **does not duplicate** platform code. It vendors [bakerbug-firmware](https://github.com/BakerStack/bakerbug-firmware) as a git submodule:
-
-```
-vendor/bakerbug-firmware/
-└── firmware/
-    ├── bsp/
-    │   ├── include/bsp/     ← headers (wifi, gpio, log, …)
-    │   └── esp8266/         ← ESP8266 implementations
-    └── lib/secrets/         ← optional: WiFi credential injection pattern
-```
-
-### What we use from BSP
-
-| Module | Used in | Skip |
-|--------|---------|------|
-| `bsp/wifi.h` | TEST 2, TEST 3, main | — |
-| `bsp/log.h` | All | — |
-| `bsp/gpio.h` | If we abstract PWM later | Optional in TEST 1 |
-| `mqtt/*` | — | **Not used** |
-| SPIRE / provisioning | — | **Not used** |
-
-### PlatformIO linkage (planned)
-
-```ini
-[env:esp8266]
-platform = espressif8266
-board = d1_mini
-framework = arduino
-
-lib_extra_dirs =
-    vendor/bakerbug-firmware/firmware/lib
-
-lib_deps =
-    bsp/esp8266
-    ; secrets — only if using compile-time WiFi injection
-```
-
-Pin a submodule commit when a release is tagged so builds are reproducible.
-
----
-
-## Firmware module map (main app target)
-
-```
-┌─────────────────────────────────────────────────────────┐
-│  main.cpp          setup(), loop orchestration          │
-├─────────────────────────────────────────────────────────┤
-│  SensorService     polls drivers::pot, drivers::ds18b20  │
-│  FanControl        drivers::fan_control + safety clamp  │
-│  ControlPolicy     pot vs override vs auto (future)     │
-│  CurrentEstimate   matrix lookup + interpolation       │
-│  WebServer         HTTP page + /api/status              │
-│  CalibrationStore  load/save PWM→mA matrix (NVS/FS)    │
-├─────────────────────────────────────────────────────────┤
-│  bakerbug BSP      WiFi, logging                        │
-└─────────────────────────────────────────────────────────┘
-```
-
-Each TEST program implements a **subset** of these modules — TEST 1 only `SensorService`, etc.
-
----
-
-## Control modes (enum — stub early)
-
-```cpp
-enum class ControlMode {
-    Manual,     // pot drives PWM (default)
-    Override,   // web slider drives PWM until pot moves
-    Auto,       // future: ESP-NOW climate node
-    Fault       // over-temp latched shutdown
-};
-```
-
-Main app V1 implements `Manual`, `Override`, `Fault`. `Auto` returns `Manual` behaviour until climate node exists.
+`Fault` / thermal safety ([ADR-0008](decisions/0008-safety-thresholds-v2.md)) — **planned V2**, not in v1.0.
 
 ---
 
 ## Data: PWM → current matrix
 
-Produced by **TEST 3**, consumed by **main app**.
+Bench lab measurement 2026-07-05 — see [test-log.md](test-log.md#test-3--pwm--cal-matrix-).
+
+- **Canonical file:** `firmware/data/cal_matrix.json` (`meta.source=bench_lab`)
+- **Main app:** `cal::load_embedded_defaults()` — no LittleFS ([ADR-0016](decisions/0016-embedded-cal-matrix-main.md))
+- **TEST 3:** LittleFS + `/cal` editor for regression
 
 ```cpp
-struct CalPoint { uint16_t pwm; uint16_t current_ma; };
+struct Row { uint16_t pwm; uint16_t current_ma; };
 ```
 
-- Storage: SPIFFS/LittleFS JSON or NVS blob
-- Lookup: linear interpolation between sorted PWM knots
-- Edge cases: below min knot → min mA; above max → max mA
+Lookup: linear interpolation between sorted PWM knots.
 
 ---
 
 ## REST API (main app)
 
-Phone app and forepeak ESP32 use HTTP JSON on the fan controller (AP or STA).
+Phone, browser, and forepeak ESP32 use HTTP JSON on the fan controller (AP default `dfan` @ `192.168.4.1`).
 
 | Method | Path | Body | Purpose |
 |--------|------|------|---------|
-| GET | `/` | — | Mobile dashboard + slider |
-| GET | `/api/status` | — | Full state: mode, pot, fan, temp, est_mA, climate |
+| GET | `/` | — | Mobile dashboard, slider, presets |
+| GET | `/api/status` | — | mode, pot, fan, pwm, est_mA, temp, climate |
+| GET | `/api/presets` | — | `{"off":0,"silent":8,"full":100}` ([ADR-0018](decisions/0018-fan-quick-presets.md)) |
 | GET | `/api/fan` | — | Fan subset: mode, setpoint, current |
-| PUT | `/api/fan/setpoint` | `{"percent":0-100}` | Remote control (phone); pot move clears (ADR-0007) |
+| PUT | `/api/fan/setpoint` | `{"percent":0-100}` | Remote control |
 | DELETE | `/api/fan/remote` | — | Back to manual pot |
-| POST | `/api/climate` | see below | Forepeak node: readings + optional `fan_percent` |
+| POST | `/api/climate` | see below | Forepeak: readings + optional `fan_percent` |
 
 **POST /api/climate** (forepeak ESP32):
 
@@ -256,11 +127,18 @@ Phone app and forepeak ESP32 use HTTP JSON on the fan controller (AP or STA).
 }
 ```
 
-If `fan_percent` is set, fan enters **remote** mode at that setpoint (same as phone). Readings are exposed on `/api/status` for 120 s. Auto logic from CO₂/temp alone is **future** — node can compute `fan_percent` (e.g. 42 ≈ 5 V sweet spot) until then.
+Climate block on `/api/status` expires after **120 s** without refresh. Auto CO₂/temp logic is **future** — node may send `fan_percent` directly.
 
-CORS: `Access-Control-Allow-Origin: *` for app development.
+CORS: `Access-Control-Allow-Origin: *` on JSON routes.
 
-TEST 3 `/cal` route remains in test firmware only; main app uses preloaded bench matrix.
+---
+
+## Web UI (v1.0)
+
+- Live pot %, fan out %, bay temp, estimated mA
+- Slider + **Apply remote** / **Back to pot**
+- **Quick presets:** OFF · Silent (8 %) · FULL ([ADR-0018](decisions/0018-fan-quick-presets.md))
+- `fetch('/api/status')` every 2 s
 
 ---
 
@@ -274,15 +152,15 @@ TEST 3 `/cal` route remains in test firmware only; main app uses preloaded bench
 └──────────────────┘                          └──────────────────┘
 ```
 
-**Why ESP-NOW:** sensor can live in the **cabin** or another compartment without running cables to the fan controller. WiFi remains for phone browser access to the fan unit.
+**Near-term alternative (v1.0):** forepeak ESP32 posts to **`POST /api/climate`** over WiFi while joined to `dfan` AP — no ESP-NOW yet.
 
 **Integration plan:**
 
-1. Add `EspNowReceiver` module with callback → updates `ClimateReading`
+1. Add `EspNowReceiver` or extend HTTP climate with auto policy
 2. Extend `ControlPolicy` with humidity/temp setpoints
-3. Keep manual override priority: pot movement always wins over auto
+3. Pot movement always wins over auto ([ADR-0007](decisions/0007-override-drop-on-pot-move.md))
 
-Peer MAC pairing stored in NVS. Out of scope until main app V1 ships.
+Details: [ADR-0009](decisions/0009-esp-now-future-climate-node.md)
 
 ---
 
@@ -290,7 +168,7 @@ Peer MAC pairing stored in NVS. Out of scope until main app V1 ships.
 
 | In this repo | In bakerbug-firmware | Future repo |
 |--------------|----------------------|-------------|
-| Fan control logic | BSP, shared drivers | Climate ESP-NOW node |
-| Web UI assets | MQTT stack | — |
-| Calibration matrix | — | — |
-| Dorinda-specific HW docs | Generic ESP8266 BSP | Remote sensor HW |
+| `control`, `cal_matrix`, `dfc_wifi`, main app | BSP, shared `drivers/` | Climate ESP-NOW node |
+| Web UI (embedded HTML) | MQTT stack (unused) | — |
+| Bench cal JSON + embedded copy | — | — |
+| Dorinda HW docs | Generic ESP8266 BSP | Remote sensor HW |

@@ -34,4 +34,4 @@ DEADBAND is tuned from TEST 1 logs (pot noise at fixed position). Start with ~3â
 
 **Follow-ups:**
 
-- Optional software filtering on pot ADC (EMA) if noise is high
+- Implemented as `control::Mode::Remote` with 4 % deadband in `firmware/lib/control/`

@@ -83,102 +83,88 @@ AP ip=192.168.4.1 clients=1 Pot=512 (50%)
 
 ---
 
-## TEST 3 — PWM → current calibration matrix `🔄`
+## TEST 3 — PWM → current calibration matrix `✅`
 
 **Path:** `firmware/tests/test3_pwm_matrix/`
 
-**Goal:** Build the lookup table used by the main app to **estimate fan current** from PWM duty.
+**Goal:** Build and maintain the lookup table used by the main app to **estimate fan current** from PWM duty.
 
-### Workflow (operator)
+**Production path:** Matrix measured on **lab bench** 2026-07-05 — see [test-log.md](test-log.md#test-3--pwm--cal-matrix-). Main app ships embedded defaults; TEST 3 remains for regression and re-cal on hardware.
+
+### Workflow (operator — optional on-device)
 
 1. Flash TEST 3 firmware
-2. Open calibration web page
-3. For each PWM step (suggested: 0, 64, 128, 192, 256, 384, 512, 768, 1023):
-   - Set PWM via web UI
-   - Measure actual current with multimeter / clamp meter
-   - Enter measured mA in the web form
-4. Submit → firmware stores row and **prints full matrix to Serial**
-
-### Serial output example
-
-```
-Matrix updated (9 rows):
-  PWM=    0  ->  12 mA
-  PWM=  128  -> 145 mA
-  ...
-```
+2. Open calibration web page (`/cal`)
+3. For each PWM step, measure mA and save row
+4. Copy updated knots to `firmware/data/cal_matrix.json` and embedded defaults in `cal_matrix` lib
 
 ### Pass criteria
 
-- [ ] Matrix persists across reboot (SPIFFS / LittleFS / NVS)
-- [ ] Serial dump on every matrix edit
-- [ ] Interpolation between points documented (linear between knots)
-- [ ] Fan audibly/spin-wise responds at each PWM step
-- [ ] PWM output **ramps** in **200 ms** steps (≤64 counts/step) — limits inrush current
+- [x] Matrix measured and in repo (`bench_lab`)
+- [x] Linear interpolation in `cal_matrix` lib
+- [x] Fan responds at PWM steps (bench)
+- [x] PWM ramps (TEST 3: 200 ms; main v1.0: 1 s steps)
+- [ ] On-boat re-verify after install — pending
 
 ### Deliverable for main app
 
-JSON or struct array consumed by main app:
-
-```json
-[
-  {"pwm": 0, "current_ma": 12},
-  {"pwm": 128, "current_ma": 145}
-]
-```
-
-File location (planned): `firmware/data/current_matrix.json` or NVS namespace `cal`.
+`firmware/data/cal_matrix.json` + `cal::load_embedded_defaults()` ([ADR-0016](decisions/0016-embedded-cal-matrix-main.md)).
 
 ---
 
-## Main application `🔄`
+## Main application `✅` (v1.0)
 
-**Path:** `firmware/apps/main/` — `make main-dev`
+**Path:** `firmware/apps/main/` — `make main-dev` (from repo root)  
+**Tag:** `v1.0` (2026-07-06)
 
-### Functional requirements
+### Functional requirements (v1.0)
 
-| # | Requirement |
-|---|-------------|
-| M1 | WiFi connect on boot (BSP) |
-| M2 | Web server with single control page |
-| M3 | Display live pot position (raw + %) |
-| M4 | Display DS18B20 enclosure temperature |
-| M5 | Slider sets PWM override (0–100 %) |
-| M6 | **Override drop:** physical pot movement beyond deadband cancels override |
-| M7 | PWM on D5 follows override if active, else pot — **ramped** in 200 ms steps (≤64 PWM counts/step), never instant jump |
-| M8 | Show **estimated current** from TEST 3 matrix + current PWM |
-| M9 | API endpoint `/api/status` JSON for debugging |
+| # | Requirement | Status |
+|---|-------------|--------|
+| M1 | WiFi AP/STA on boot (`dfc_wifi`) | ✅ |
+| M2 | Web server + mobile dashboard | ✅ |
+| M3 | Live pot (raw + %) | ✅ |
+| M4 | DS18B20 temp (5 s tick) | ✅ |
+| M5 | Slider remote setpoint (0–100 %) | ✅ |
+| M6 | Remote clears when pot moves >4 % | ✅ |
+| M7 | Ramped PWM @ 18 kHz (1 s / 6 % steps) | ✅ |
+| M8 | Estimated current from bench matrix | ✅ |
+| M9 | `/api/status` JSON | ✅ |
+| M10 | Boot-safe: fan off until pot arms | ✅ |
+| M11 | `POST /api/climate` for forepeak | ✅ |
+| M12 | Presets OFF / Silent / FULL | ✅ |
 
-### Override logic (draft)
+### Control logic (implemented)
 
 ```
-if override_active:
-    if abs(pot - pot_at_override_lock) > DEADBAND:
-        override_active = false
-
-output_pct = override_active ? slider_pct : drivers::pot_read_value_percentage()
-drivers::fan_control_set_new_setpoint(output_pct)
-drivers::fan_control_loop()   // ramp 200 ms / 6 % steps
-estimated_ma = interpolate(matrix, drivers::fan_control_get_pwm_raw())
+control::output_percent(pot_pct)  // 0 until boot armed
+fan_control_set_new_setpoint(output)
+fan_control_loop()                // once per CONTROL_INTERVAL_MS (1 s)
+est_ma = cal::interpolate_ma(pwm)
 ```
 
-`DEADBAND` tuned from TEST 1 logs (start with 3–5 % of ADC range).
+`DEADBAND` = **4 %** (`POT_DEADBAND_PCT`). See [ADR-0007](decisions/0007-override-drop-on-pot-move.md).
 
-### Safety requirements (main app V2)
+### Loop timing
+
+1 s control · 5 s temperature · 1 s serial — [ADR-0014](decisions/0014-cooperative-loop-timing.md).
+
+### Safety requirements (main app V2) `⬜`
 
 | Condition | Action |
 |-----------|--------|
-| Temp > 70 °C | Force PWM = 100 %, show warning on web UI |
-| Temp > 85 °C | Enter **FAULT**: PWM = 0, latch until reset, Serial alarm |
-| DS18B20 fault | Show `---`, optional conservative fan speed |
+| Temp > 70 °C | Force PWM = 100 %, warning on UI |
+| Temp > 85 °C | **FAULT**: PWM = 0, latch until reset |
+| DS18B20 fault | Show `---` |
 
-### Web UI (minimum)
+See [ADR-0008](decisions/0008-safety-thresholds-v2.md).
 
-- Pot gauge / numeric
-- Temperature
-- Current estimate (mA)
-- PWM slider + “Override active” indicator
-- Mobile-friendly layout (boat use case)
+### Web UI (v1.0)
+
+- Pot, temp, fan %, est. mA
+- Remote slider + back to manual
+- **OFF · Silent · FULL** presets
+- Mobile-friendly layout
 
 ---
 
@@ -199,8 +185,7 @@ Architecture stub in main app from day one — see [architecture.md](architectur
 ## Suggested implementation order
 
 ```
-TEST 1 ──► TEST 2 ──► TEST 3 ──► Main app (M1–M9) ──► Safety V2 ──► ESP-NOW
-   │           │           │
-   └─ no BSP    └─ BSP     └─ BSP + web + NVS
-      WiFi         WiFi
+TEST 1 ──► TEST 2 ──► TEST 3 (bench cal) ──► Main v1.0 ──► Safety V2 ──► ESP-NOW
+   │           │              │
+   └─ no BSP    └─ dfc_wifi    └─ TEST3 on-device cal optional
 ```

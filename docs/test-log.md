@@ -107,7 +107,22 @@ Full sweep — human verified 2026-07-05:
 
 ---
 
-## Main app `🔄`
+## Main app `✅` (v1.0)
 
-**Path:** `firmware/apps/main/` — `make main-dev`  
-REST API: [architecture.md](architecture.md#rest-api-main-app)
+**Date:** 2026-07-06  
+**Tag:** `v1.0`  
+**Path:** `firmware/apps/main/` — `make main-dev` from repo root
+
+| Item | Result |
+|------|--------|
+| WiFi | AP `dfan` via `dfc_wifi` + BSP softAP ([ADR-0017](decisions/0017-dfc-wifi-shared-boot.md)) |
+| Loop timing | 1 s control / 5 s temp ([ADR-0014](decisions/0014-cooperative-loop-timing.md)) |
+| Boot safety | Fan off until pot >4 % from boot ([ADR-0015](decisions/0015-boot-safe-fan-off.md)) |
+| Cal matrix | Embedded bench_lab defaults ([ADR-0016](decisions/0016-embedded-cal-matrix-main.md)) |
+| REST | `/api/status`, `/api/fan/*`, `/api/climate`, `/api/presets` |
+| Presets | OFF / Silent (8 %) / FULL ([ADR-0018](decisions/0018-fan-quick-presets.md)) |
+| On-boat install | ⬜ Pending |
+
+**Bring-up note:** AP stability required cooperative scheduling and WiFi-before-sensors boot order — not flash size. TEST 2 source in `[env:main]` proved build env OK; main runtime timing was the fix.
+
+API reference: [architecture.md](architecture.md#rest-api-main-app)
