@@ -1,0 +1,9 @@
+{
+  "name": "control",
+  "version": "1.0.0",
+  "description": "Fan control policy — manual pot vs remote REST",
+  "build": {
+    "includeDir": "include",
+    "srcDir": "src"
+  }
+}

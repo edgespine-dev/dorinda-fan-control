@@ -232,16 +232,35 @@ struct CalPoint { uint16_t pwm; uint16_t current_ma; };
 
 ---
 
-## Web API (main app, draft)
+## REST API (main app)
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| GET | `/` | Control page |
-| GET | `/api/status` | JSON: pot, temp, pwm, override, current_ma, mode |
-| POST | `/api/override` | `{ "pwm": 0–1023 }` enable override |
-| DELETE | `/api/override` | Clear override |
+Phone app and forepeak ESP32 use HTTP JSON on the fan controller (AP or STA).
 
-TEST 3 may reuse the same web stack with different routes for matrix editing.
+| Method | Path | Body | Purpose |
+|--------|------|------|---------|
+| GET | `/` | — | Mobile dashboard + slider |
+| GET | `/api/status` | — | Full state: mode, pot, fan, temp, est_mA, climate |
+| GET | `/api/fan` | — | Fan subset: mode, setpoint, current |
+| PUT | `/api/fan/setpoint` | `{"percent":0-100}` | Remote control (phone); pot move clears (ADR-0007) |
+| DELETE | `/api/fan/remote` | — | Back to manual pot |
+| POST | `/api/climate` | see below | Forepeak node: readings + optional `fan_percent` |
+
+**POST /api/climate** (forepeak ESP32):
+
+```json
+{
+  "temp_c": 22.5,
+  "humidity_pct": 55,
+  "co2_ppm": 800,
+  "fan_percent": 42
+}
+```
+
+If `fan_percent` is set, fan enters **remote** mode at that setpoint (same as phone). Readings are exposed on `/api/status` for 120 s. Auto logic from CO₂/temp alone is **future** — node can compute `fan_percent` (e.g. 42 ≈ 5 V sweet spot) until then.
+
+CORS: `Access-Control-Allow-Origin: *` for app development.
+
+TEST 3 `/cal` route remains in test firmware only; main app uses preloaded bench matrix.
 
 ---
 

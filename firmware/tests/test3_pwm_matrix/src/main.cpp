@@ -43,6 +43,31 @@ String g_device_ip;
 bool g_cal_hold = false;
 int g_cal_hold_pct = 0;
 
+constexpr int BOOT_DEADBAND_PCT = 4;
+bool g_boot_armed = false;
+int g_boot_pot_pct = -1;
+
+static int boot_safe_pot_percent(int pot_pct)
+{
+    if (g_boot_armed)
+    {
+        return pot_pct;
+    }
+    if (g_boot_pot_pct < 0)
+    {
+        g_boot_pot_pct = pot_pct;
+        return 0;
+    }
+    const int delta = pot_pct - g_boot_pot_pct;
+    if (delta < 0 ? -delta : delta <= BOOT_DEADBAND_PCT)
+    {
+        return 0;
+    }
+    g_boot_armed = true;
+    Serial.printf("boot armed (pot %d%%, idle at %d%%)\n", pot_pct, g_boot_pot_pct);
+    return pot_pct;
+}
+
 static int pwm_to_percent(uint16_t pwm)
 {
     if (pwm > 1023)
@@ -72,18 +97,16 @@ static bool wifi_start()
             return false;
         }
         g_device_ip = bsp_wifi_ip();
-        Serial.printf("STA OK ip=%s\n", device_ip());
         return true;
     }
 
     g_wifi_mode = WifiMode::Ap;
-    WiFi.mode(WIFI_AP);
-    if (!WiFi.softAP(DFC_WIFI_SSID, DFC_WIFI_PASSWORD))
+    if (!bsp_wifi_softap_begin(DFC_WIFI_SSID, DFC_WIFI_PASSWORD))
     {
         return false;
     }
-    g_device_ip = WiFi.softAPIP().toString();
-    Serial.printf("AP OK ssid=%s ip=%s\n", DFC_WIFI_SSID, device_ip());
+    g_device_ip = bsp_wifi_softap_ip();
+    bsp_wifi_print_diag();
     return true;
 }
 
@@ -98,7 +121,8 @@ static bool wifi_ready()
 
 static void apply_fan_setpoint(int pot_pct)
 {
-    const int pct = g_cal_hold ? g_cal_hold_pct : pot_pct;
+    const int safe_pct = boot_safe_pot_percent(pot_pct);
+    const int pct = g_cal_hold ? g_cal_hold_pct : safe_pct;
     drivers::fan_control_set_new_setpoint(pct);
 }
 
@@ -284,19 +308,19 @@ static void setup_web()
 
 void setup()
 {
+    drivers::fan_control_force_off(hw::pins::FAN_PWM);
+
     Serial.begin(SERIAL_BAUD);
     delay(100);
     log_init(SERIAL_BAUD);
+    set_log_level(LOG_LEVEL_DEBUG);
 
     drivers::pot_init(hw::pins::POT, POT_ADC_MIN, POT_ADC_MAX);
     drivers::ds18b20_init(hw::pins::DS18B20);
-    drivers::fan_control_init(hw::pins::FAN_PWM, FAN_RAMP_INTERVAL_MS, FAN_RAMP_STEP_PERCENT,
-                              FAN_PWM_HZ);
-    poll_sensors_fast();
-    poll_sensors_slow();
 
     Serial.println();
     Serial.println("TEST 3 — pot PWM + cal matrix (18 kHz on D5)");
+    Serial.println("Safety: fan OFF until pot moves >4% from boot position");
 
     if (!cal::init())
     {
@@ -315,6 +339,12 @@ void setup()
     }
 
     setup_web();
+
+    drivers::fan_control_init(hw::pins::FAN_PWM, FAN_RAMP_INTERVAL_MS, FAN_RAMP_STEP_PERCENT,
+                              FAN_PWM_HZ);
+    drivers::fan_control_set_new_setpoint(0);
+    poll_sensors_fast();
+    poll_sensors_slow();
 }
 
 void loop()

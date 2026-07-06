@@ -14,6 +14,7 @@ struct Row
 };
 
 bool init();
+bool load_embedded_defaults();  // RAM only — safe while WiFi AP is up (no LittleFS)
 bool load();
 bool save();
 bool upsert(uint16_t pwm, uint16_t current_ma);

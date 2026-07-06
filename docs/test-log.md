@@ -70,6 +70,44 @@ Full sweep — human verified 2026-07-05:
 
 ---
 
-## TEST 3 — PWM + cal matrix `🔄`
+## TEST 3 — PWM + cal matrix `✅`
 
-*(firmware ready — bench with 12 V + fan)*
+**Date:** 2026-07-05  
+**Sign-off:** Matrix measured **bench lab** (below). TEST 3 kept for regression; use **main app** on boat.
+
+### Calibration matrix — bench lab (traceability)
+
+| Traceability | Value |
+|--------------|-------|
+| **Where** | Lab bench — Dorinda electronics cube (not installed on boat) |
+| **When** | 2026-07-05 |
+| **Source** | `bench_lab` (see `firmware/data/cal_matrix.json` → `meta`) |
+| **Supply** | ~12 V, house bank at rest — **not charging** |
+| **Instrument** | Clamp meter |
+| **PWM mapping** | V_fan / 12 × 1023 |
+
+| ~V (fan) | Measured A | mA | PWM |
+|----------|------------|-----|-----|
+| 1.01 | 0.327 | 327 | 86 |
+| 2.4 | 0.632 | 632 | 205 |
+| 4.8 | 1.507 | 1507 | 410 |
+| **5.0** | **1.7** | **1700** | **426** |
+| 6.0 | 2.08 | 2080 | 512 |
+| 7.2 | 2.6 | 2600 | 614 |
+| 9.6 | 4.0 | 4000 | 819 |
+| 12.0 | 5.56 | 5560 | 1023 |
+
+**Notes:** 5 V / ~1.7 A = anchor sweet spot (~42 % PWM). Est. mA most accurate when not charging.
+
+| Item | Result |
+|------|--------|
+| Matrix in repo | ✅ |
+| Bench measurement | ✅ Lab 2026-07-05 |
+| On-boat install | ⬜ Pending |
+
+---
+
+## Main app `🔄`
+
+**Path:** `firmware/apps/main/` — `make main-dev`  
+REST API: [architecture.md](architecture.md#rest-api-main-app)

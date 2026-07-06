@@ -3,8 +3,8 @@
 #include <ESPAsyncWebServer.h>
 
 #include <bsp/log.h>
-#include <bsp/wifi.h>
 #include <dfc_secrets.h>
+#include <dfc_wifi/dfc_wifi.h>
 #include <drivers/ds18b20.h>
 #include <drivers/potentiometer.h>
 #include <hw/pins.h>
@@ -14,8 +14,6 @@ constexpr uint32_t SENSOR_INTERVAL_MS = 1000;
 
 constexpr int16_t POT_ADC_MIN = 5;
 constexpr int16_t POT_ADC_MAX = 1024;
-
-enum class WifiMode { Ap, Sta };
 
 struct LiveData
 {
@@ -28,18 +26,6 @@ struct LiveData
 AsyncWebServer server(80);
 LiveData g_live;
 uint32_t last_sensor_ms = 0;
-WifiMode g_wifi_mode = WifiMode::Ap;
-String g_device_ip;
-
-static bool wifi_is_sta()
-{
-    return g_wifi_mode == WifiMode::Sta;
-}
-
-static const char* device_ip()
-{
-    return g_device_ip.c_str();
-}
 
 static void poll_sensors()
 {
@@ -48,43 +34,8 @@ static void poll_sensors()
     g_live.temp_ok = drivers::ds18b20_read_celsius(&g_live.temp_c);
 }
 
-static bool wifi_start()
-{
-    if (strcmp(DFC_WIFI_MODE, "STA") == 0)
-    {
-        g_wifi_mode = WifiMode::Sta;
-        if (!bsp_wifi_connect(DFC_WIFI_SSID, DFC_WIFI_PASSWORD))
-        {
-            return false;
-        }
-        g_device_ip = bsp_wifi_ip();
-        Serial.printf("STA OK ip=%s\n", device_ip());
-        return true;
-    }
-
-    g_wifi_mode = WifiMode::Ap;
-    WiFi.mode(WIFI_AP);
-    if (!WiFi.softAP(DFC_WIFI_SSID, DFC_WIFI_PASSWORD))
-    {
-        return false;
-    }
-    g_device_ip = WiFi.softAPIP().toString();
-    Serial.printf("AP OK ssid=%s ip=%s (WPA2)\n", DFC_WIFI_SSID, device_ip());
-    return true;
-}
-
-static bool wifi_ready()
-{
-    if (wifi_is_sta())
-    {
-        return bsp_wifi_is_connected();
-    }
-    return WiFi.getMode() == WIFI_AP;
-}
-
 static void setup_web()
 {
-    // Never touch OneWire/ADC here — DS18B20 blocks ~750 ms and panics async TCP stack.
     server.on("/", HTTP_GET, [](AsyncWebServerRequest* request) {
         static char page[1024];
         static char temp_buf[16];
@@ -143,6 +94,9 @@ void setup()
     Serial.begin(SERIAL_BAUD);
     delay(100);
     log_init(SERIAL_BAUD);
+    set_log_level(LOG_LEVEL_DEBUG);
+
+    dfc_wifi_prepare();
 
     drivers::pot_init(hw::pins::POT, POT_ADC_MIN, POT_ADC_MAX);
     drivers::ds18b20_init(hw::pins::DS18B20);
@@ -151,7 +105,7 @@ void setup()
     Serial.println();
     Serial.println("TEST 2 — WiFi + pot + temp (no fan PWM)");
 
-    if (!wifi_start())
+    if (!dfc_wifi_boot())
     {
         Serial.println("WiFi start FAILED — check secrets.env (password >= 8 chars for AP)");
         return;
@@ -170,35 +124,35 @@ void loop()
         last_sensor_ms = now;
         poll_sensors();
 
-        if (!wifi_ready())
+        if (!dfc_wifi_ready())
         {
-            Serial.println(wifi_is_sta() ? "WiFi lost" : "AP down");
+            Serial.println(dfc_wifi_is_sta() ? "WiFi lost" : "AP down");
             return;
         }
 
-        if (wifi_is_sta())
+        if (dfc_wifi_is_sta())
         {
             if (g_live.temp_ok)
             {
                 Serial.printf("STA ip=%s Pot=%d (%d%%) Temp=%.1fC\n",
-                              device_ip(), g_live.pot_raw, g_live.pot_pct, g_live.temp_c);
+                              dfc_wifi_ip(), g_live.pot_raw, g_live.pot_pct, g_live.temp_c);
             }
             else
             {
                 Serial.printf("STA ip=%s Pot=%d (%d%%) Temp=---C\n",
-                              device_ip(), g_live.pot_raw, g_live.pot_pct);
+                              dfc_wifi_ip(), g_live.pot_raw, g_live.pot_pct);
             }
         }
         else if (g_live.temp_ok)
         {
             Serial.printf("AP ip=%s clients=%u Pot=%d (%d%%) Temp=%.1fC\n",
-                          device_ip(), WiFi.softAPgetStationNum(),
+                          dfc_wifi_ip(), dfc_wifi_client_count(),
                           g_live.pot_raw, g_live.pot_pct, g_live.temp_c);
         }
         else
         {
             Serial.printf("AP ip=%s clients=%u Pot=%d (%d%%) Temp=---C\n",
-                          device_ip(), WiFi.softAPgetStationNum(),
+                          dfc_wifi_ip(), dfc_wifi_client_count(),
                           g_live.pot_raw, g_live.pot_pct);
         }
     }

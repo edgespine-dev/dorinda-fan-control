@@ -99,8 +99,8 @@ Development proceeds in locked order. Do not skip ahead.
 |-------|--------|---------|--------|
 | **TEST 1** | `firmware/tests/test1_sensors/` | Pot + DS18B20 → Serial | ✅ **Done** — human verified 2026-07-05 ([log](docs/test-log.md)) |
 | **TEST 2** | `firmware/tests/test2_wifi_pot/` | WiFi AP + pot/temp web | ✅ Done ([log](docs/test-log.md)) |
-| **TEST 3** | `firmware/tests/test3_pwm_matrix/` | Pot→PWM + cal matrix | 🔄 Ready to flash |
-| **Main app** | `firmware/apps/main/` | Production controller | ⬜ Planned |
+| **TEST 3** | `firmware/tests/test3_pwm_matrix/` | Pot→PWM + cal matrix | ✅ Bench lab cal |
+| **Main app** | `firmware/apps/main/` | Production REST controller | 🔄 Ready to flash |
 
 Detailed requirements for each phase: [docs/roadmap.md](docs/roadmap.md)
 
@@ -170,7 +170,8 @@ cp secrets.env.example secrets.env   # WIFI_MODE=AP, SSID, password
 
 make test1-dev    # TEST 1 — serial sensors (done)
 make test2-dev    # TEST 2 — WiFi AP + web (done)
-make test3-dev    # TEST 3 — pot→PWM + cal matrix (current)
+make test3-dev    # TEST 3 — regression / cal UI
+make main-dev     # Main app — REST + pot (current)
 ```
 
 See [firmware/README.md](firmware/README.md) and [docs/test-log.md](docs/test-log.md).

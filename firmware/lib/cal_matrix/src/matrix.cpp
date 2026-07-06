@@ -10,6 +10,21 @@ namespace {
 
 constexpr char kPath[] = "/cal_matrix.json";
 
+// Default matrix — bench lab, Dorinda cube @ ~12 V not charging (2026-07-05).
+// Traceability: docs/test-log.md, firmware/data/cal_matrix.json (meta.source=bench_lab).
+// PWM from V/12 × 1023; 426 ≈ 5 V sweet spot (~1.7 A).
+constexpr Row kDefaultRows[] = {
+    {86, 327},
+    {205, 632},
+    {410, 1507},
+    {426, 1700},
+    {512, 2080},
+    {614, 2600},
+    {819, 4000},
+    {1023, 5560},
+};
+constexpr size_t kDefaultRowCount = sizeof(kDefaultRows) / sizeof(kDefaultRows[0]);
+
 Row g_rows[MAX_ROWS];
 size_t g_count = 0;
 
@@ -29,6 +44,18 @@ void sort_rows()
     }
 }
 
+bool seed_defaults()
+{
+    g_count = 0;
+    for (size_t i = 0; i < kDefaultRowCount && g_count < MAX_ROWS; ++i)
+    {
+        g_rows[g_count] = kDefaultRows[i];
+        ++g_count;
+    }
+    sort_rows();
+    return save();
+}
+
 }  // namespace
 
 bool init()
@@ -38,7 +65,28 @@ bool init()
         Serial.println("LittleFS mount failed");
         return false;
     }
-    return load();
+    if (!load())
+    {
+        return false;
+    }
+    if (g_count == 0)
+    {
+        Serial.println("cal_matrix: seeding Dorinda bench defaults");
+        return seed_defaults();
+    }
+    return true;
+}
+
+bool load_embedded_defaults()
+{
+    g_count = 0;
+    for (size_t i = 0; i < kDefaultRowCount && g_count < MAX_ROWS; ++i)
+    {
+        g_rows[g_count] = kDefaultRows[i];
+        ++g_count;
+    }
+    sort_rows();
+    return g_count > 0;
 }
 
 bool load()

@@ -131,9 +131,9 @@ File location (planned): `firmware/data/current_matrix.json` or NVS namespace `c
 
 ---
 
-## Main application `⬜`
+## Main application `🔄`
 
-**Path:** `firmware/apps/main/`
+**Path:** `firmware/apps/main/` — `make main-dev`
 
 ### Functional requirements
 

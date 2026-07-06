@@ -1,0 +1,22 @@
+{
+  "meta": {
+    "source": "bench_lab",
+    "location": "Dorinda electronics cube — lab bench (not installed on boat)",
+    "date": "2026-07-05",
+    "supply_v": 12,
+    "charging": false,
+    "instrument": "clamp meter",
+    "pwm_from_v": "V_fan / 12 * 1023",
+    "notes": "5 V / 1.7 A anchor sweet spot at PWM 426"
+  },
+  "rows": [
+    {"pwm": 86, "current_ma": 327},
+    {"pwm": 205, "current_ma": 632},
+    {"pwm": 410, "current_ma": 1507},
+    {"pwm": 426, "current_ma": 1700},
+    {"pwm": 512, "current_ma": 2080},
+    {"pwm": 614, "current_ma": 2600},
+    {"pwm": 819, "current_ma": 4000},
+    {"pwm": 1023, "current_ma": 5560}
+  ]
+}

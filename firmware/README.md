@@ -10,7 +10,7 @@ firmware/
 ├── lib/hw/                    # Dorinda pin map only (`hw/pins.h`)
 ├── tests/
 │   └── test1_sensors/         # TEST 1 — serial only
-└── apps/main/                 # (planned) production app
+└── apps/main/                 # Production REST app
 ```
 
 **BSP:** `vendor/bakerbug-firmware` (git submodule). Used from TEST 2 onward for WiFi — not linked in TEST 1.
@@ -60,7 +60,26 @@ iOS may show **"Weak Security"** on the AP — normal for ESP8266 (WPA2 only, no
 
 JSON API: `/api/status`
 
-## TEST 3 — PWM + current calibration matrix
+## Main app — REST + pot (current)
+
+```bash
+make main-dev
+```
+
+- **Manual:** pot → fan (ramped)
+- **Remote:** `PUT /api/fan/setpoint` (phone or forepeak ESP32); pot move clears remote
+- **Dashboard:** `/` with slider; **API:** [docs/architecture.md](../docs/architecture.md#rest-api-main-app)
+- Bench cal matrix seeds on first boot
+
+Forepeak node example (sweet spot ~42 %):
+
+```bash
+curl -X POST http://192.168.4.1/api/climate \
+  -H 'Content-Type: application/json' \
+  -d '{"temp_c":22,"humidity_pct":55,"co2_ppm":800,"fan_percent":42}'
+```
+
+## TEST 3 — regression / cal UI
 
 **Requires 12 V + fan connected.** Pot → `fan_set_new_setpoint()`; PWM @ 18 kHz, **ramped 6 % / 200 ms** (`fan_control_loop()`).
 
@@ -70,7 +89,7 @@ make test3-monitor
 ```
 
 1. Dashboard: pot → PWM, temp, estimated mA (after cal)
-2. **`/cal`** — set PWM knot, enter measured mA from clamp meter, save (persists in LittleFS)
+2. **`/cal`** — edit matrix rows (persists in LittleFS); first boot seeds Dorinda bench defaults if empty
 3. Serial dumps full matrix on each save
 
 Suggested knots: 0, 64, 128, 192, 256, 384, 512, 768, 1023.

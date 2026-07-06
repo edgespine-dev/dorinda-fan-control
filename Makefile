@@ -45,8 +45,18 @@ $(SECRETS_HDR): $(SECRETS_ENV)
 
 TEST2_RUN = cd $(FW) && DFC_SRC=tests/test2_wifi_pot/src $(PIO) run -e test2
 TEST3_RUN = cd $(FW) && DFC_SRC=tests/test3_pwm_matrix/src $(PIO) run -e test3
+MAIN_RUN  = cd $(FW) && DFC_SRC=apps/main/src $(PIO) run -e main
 
-.PHONY: help test1 test1-upload test1-monitor test1-dev test2 test2-upload test2-monitor test2-dev test3 test3-upload test3-monitor test3-dev clean init
+.PHONY: help test1 test1-upload test1-monitor test1-dev test2 test2-upload test2-monitor test2-dev test3 test3-upload test3-monitor test3-dev main main-upload main-monitor main-dev main-erase clean init sync-bsp-libdeps
+
+# PlatformIO copies path-based lib_deps into .pio/libdeps/ and can serve stale BSP.
+sync-bsp-libdeps:
+	@rm -rf $(FW)/.pio/libdeps/*/bsp
+
+# Full chip erase — clears stale RF-cal / PHY-init / SDK param sectors.
+# Use when AP reports OK in serial but no device sees the network.
+main-erase:
+	$(MAIN_RUN) -t erase
 
 help:
 	@echo "dorinda-fan-control"
@@ -64,6 +74,11 @@ help:
 	@echo "  make test3-upload   Flash TEST 3"
 	@echo "  make test3-monitor  Serial monitor (115200)"
 	@echo "  make test3-dev      upload + monitor"
+	@echo "  make main           Build main app (REST + pot)"
+	@echo "  make main-upload    Flash main app"
+	@echo "  make main-erase     Full chip erase (fix stale RF-cal → dead AP)"
+	@echo "  make main-monitor   Serial monitor (115200)"
+	@echo "  make main-dev       upload + monitor"
 	@echo "  make clean          Remove build artifacts"
 
 init:
@@ -82,13 +97,13 @@ test1-monitor:
 
 test1-dev: test1-upload test1-monitor
 
-test2: $(SECRETS_HDR)
+test2: $(SECRETS_HDR) sync-bsp-libdeps
 	@test -n "$(WIFI_SSID)" || (echo "ERROR: WIFI_SSID missing in secrets.env" && exit 1)
 	@test -n "$(WIFI_PASSWORD)" || (echo "ERROR: WIFI_PASSWORD missing in secrets.env" && exit 1)
 	@echo "TEST 2 build — MODE=$(WIFI_MODE) SSID=$(WIFI_SSID)"
 	$(TEST2_RUN)
 
-test2-upload: $(SECRETS_HDR)
+test2-upload: $(SECRETS_HDR) sync-bsp-libdeps
 	@test -n "$(WIFI_SSID)" || (echo "ERROR: WIFI_SSID missing in secrets.env" && exit 1)
 	@test -n "$(WIFI_PASSWORD)" || (echo "ERROR: WIFI_PASSWORD missing in secrets.env" && exit 1)
 	@echo "TEST 2 upload — MODE=$(WIFI_MODE) SSID=$(WIFI_SSID)"
@@ -99,13 +114,13 @@ test2-monitor:
 
 test2-dev: test2-upload test2-monitor
 
-test3: $(SECRETS_HDR)
+test3: $(SECRETS_HDR) sync-bsp-libdeps
 	@test -n "$(WIFI_SSID)" || (echo "ERROR: WIFI_SSID missing in secrets.env" && exit 1)
 	@test -n "$(WIFI_PASSWORD)" || (echo "ERROR: WIFI_PASSWORD missing in secrets.env" && exit 1)
 	@echo "TEST 3 build — MODE=$(WIFI_MODE) SSID=$(WIFI_SSID)"
 	$(TEST3_RUN)
 
-test3-upload: $(SECRETS_HDR)
+test3-upload: $(SECRETS_HDR) sync-bsp-libdeps
 	@test -n "$(WIFI_SSID)" || (echo "ERROR: WIFI_SSID missing in secrets.env" && exit 1)
 	@test -n "$(WIFI_PASSWORD)" || (echo "ERROR: WIFI_PASSWORD missing in secrets.env" && exit 1)
 	@echo "TEST 3 upload — MODE=$(WIFI_MODE) SSID=$(WIFI_SSID)"
@@ -116,7 +131,25 @@ test3-monitor:
 
 test3-dev: test3-upload test3-monitor
 
-clean:
+main: $(SECRETS_HDR) sync-bsp-libdeps
+	@test -n "$(WIFI_SSID)" || (echo "ERROR: WIFI_SSID missing in secrets.env" && exit 1)
+	@test -n "$(WIFI_PASSWORD)" || (echo "ERROR: WIFI_PASSWORD missing in secrets.env" && exit 1)
+	@echo "Main app build — MODE=$(WIFI_MODE) SSID=$(WIFI_SSID)"
+	$(MAIN_RUN)
+
+main-upload: $(SECRETS_HDR) sync-bsp-libdeps
+	@test -n "$(WIFI_SSID)" || (echo "ERROR: WIFI_SSID missing in secrets.env" && exit 1)
+	@test -n "$(WIFI_PASSWORD)" || (echo "ERROR: WIFI_PASSWORD missing in secrets.env" && exit 1)
+	@echo "Main app upload — MODE=$(WIFI_MODE) SSID=$(WIFI_SSID)"
+	$(MAIN_RUN) -t upload
+
+main-monitor:
+	cd $(FW) && $(PIO) device monitor -b 115200
+
+main-dev: main-upload main-monitor
+
+clean: sync-bsp-libdeps
 	cd $(FW) && $(PIO) run -e test1 -t clean
 	cd $(FW) && DFC_SRC=tests/test2_wifi_pot/src $(PIO) run -e test2 -t clean
 	cd $(FW) && DFC_SRC=tests/test3_pwm_matrix/src $(PIO) run -e test3 -t clean
+	cd $(FW) && DFC_SRC=apps/main/src $(PIO) run -e main -t clean
