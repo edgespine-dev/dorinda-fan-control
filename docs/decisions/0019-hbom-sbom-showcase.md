@@ -15,17 +15,17 @@ Amazon EU short links rot quickly; procurement must survive without them.
 2. **`docs/sbom.md`** — Human-readable software BOM index (first-party modules, submodule pin, key PlatformIO libs). Machine-readable CycloneDX is a **follow-up**.
 3. Link HBOM from [hardware.md](../hardware.md) and README quick orientation.
 
-Mapping of user-supplied Amazon short codes (2026-07-06):
+Mapping of user-supplied Amazon short codes (2026-07-06), verified by fetching listings:
 
-| Short link | HBOM-ID | Notes |
-|------------|---------|-------|
-| `01ntzGoL` | HBOM-001 | D1 Mini — title not archived |
-| `0b5MPv1g` | HBOM-002 | MOSFET module — title not archived |
-| `05YXt20E` | HBOM-003 | DS18B20 — title not archived |
-| `0fsmNuAP` | HBOM-005 | B50K pot — user confirmed |
-| `0aHGjEvU` | HBOM-008 | 10A10 diodes — optional; title archived |
+| Short link | HBOM-ID | Archived product |
+|------------|---------|------------------|
+| `01ntzGoL` | HBOM-001 | AZDelivery D1 Mini ESP8266-12F CH340G (ASIN B0754W6Z2F) |
+| `05YXt20E` | HBOM-002 | Vegena dual MOSFET 15 A PWM module (ASIN B0C3LXNK7T) |
+| `0b5MPv1g` | HBOM-006 | Hailege XL4015 buck 4–38 V → 1.25–36 V 5 A (ASIN B07XRF9NWP) |
+| `0fsmNuAP` | HBOM-005 | B50K linear pot (user-confirmed; listing bot-gated) |
+| `0aHGjEvU` | HBOM-008 | 10A10 rectifier diodes 30-pack (optional) |
 
-Buck converter and 12 V fan have no reference link — spec-only rows.
+DS18B20, 4.7 kΩ, and 12 V fan: no reference link — procurement-neutral specs only.
 
 ## Consequences
 
@@ -41,4 +41,6 @@ Buck converter and 12 V fan have no reference link — spec-only rows.
 
 **Follow-ups:**
 
-- CycloneDX on release tag; `SECURITY.md`; user fills archived titles for `01ntzGoL`, `0b5MPv1g`, `05YXt20E`
+- User to paste B50K pot ASIN/title from order history (`0fsmNuAP`)
+- Add DS18B20 + fan reference links when sourced for boat install
+- CycloneDX on release tag; `SECURITY.md`
