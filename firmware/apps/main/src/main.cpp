@@ -28,6 +28,12 @@ constexpr uint32_t FAN_RAMP_INTERVAL_MS = 1000;
 constexpr uint8_t FAN_RAMP_STEP_PERCENT = 6;
 constexpr uint32_t FAN_PWM_HZ = 18000;
 
+// Quick presets (percent of 12 V fan bus). Silent ≈ 1 V minimum crawl.
+constexpr int FAN_BUS_NOMINAL_V = 12;
+constexpr int SILENT_PERCENTAGE = (1 * 100 + FAN_BUS_NOMINAL_V / 2) / FAN_BUS_NOMINAL_V;
+constexpr int FAN_PRESET_OFF_PERCENT = 0;
+constexpr int FAN_PRESET_FULL_PERCENT = 100;
+
 struct RemoteClimate
 {
     bool valid = false;
@@ -175,6 +181,11 @@ input[type=range]{width:100%}
 button{width:100%;padding:.65rem;margin-top:.5rem;border-radius:8px;border:none;
 background:#2563eb;color:#fff;font-weight:600;font-size:1rem;cursor:pointer}
 button.secondary{background:#334155}
+.presets{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem;margin-top:1.25rem}
+button.preset{padding:1.1rem .5rem;margin-top:0;font-size:1rem}
+button.preset-off{background:#475569}
+button.preset-silent{background:#0d9488}
+button.preset-full{background:#b45309}
 </style></head><body>
 <h1>Dorinda fan</h1>
 <p class=tag id=mode>…</p>
@@ -188,7 +199,17 @@ button.secondary{background:#334155}
 <input type=range id=slider min=0 max=100 value=42>
 <button id=apply>Apply remote</button>
 <button class=secondary id=manual>Back to pot (manual)</button>
+<div class=presets>
+<button class="preset preset-off" id=preset-off>OFF</button>
+<button class="preset preset-silent" id=preset-silent>Silent</button>
+<button class="preset preset-full" id=preset-full>FULL</button>
+</div>
 <script>
+async function applyPreset(p){
+  await fetch('/api/fan/setpoint',{method:'PUT',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({percent:p})});
+  refresh();
+}
 async function refresh(){
   const r=await fetch('/api/status');const j=await r.json();
   document.getElementById('mode').textContent='Mode: '+j.mode+(j.mode==='remote'?' ('+j.remote_percent+'%)':'');
@@ -210,10 +231,25 @@ document.getElementById('manual').onclick=async()=>{
   await fetch('/api/fan/remote',{method:'DELETE'});
   refresh();
 };
+fetch('/api/presets').then(r=>r.json()).then(p=>{
+  document.getElementById('preset-off').onclick=()=>applyPreset(p.off);
+  document.getElementById('preset-silent').onclick=()=>applyPreset(p.silent);
+  document.getElementById('preset-full').onclick=()=>applyPreset(p.full);
+  document.getElementById('preset-silent').textContent='Silent '+p.silent+'%';
+});
 setInterval(refresh,2000);refresh();
 </script></body></html>
 )raw";
         request->send(200, "text/html", page);
+    });
+
+    server.on("/api/presets", HTTP_GET, [](AsyncWebServerRequest* request) {
+        static char json[64];
+        snprintf(json, sizeof(json), "{\"off\":%d,\"silent\":%d,\"full\":%d}",
+                 FAN_PRESET_OFF_PERCENT, SILENT_PERCENTAGE, FAN_PRESET_FULL_PERCENT);
+        AsyncWebServerResponse* response = request->beginResponse(200, "application/json", json);
+        response->addHeader("Access-Control-Allow-Origin", "*");
+        request->send(response);
     });
 
     server.on("/api/status", HTTP_GET, [](AsyncWebServerRequest* request) {
